@@ -31,6 +31,7 @@ const userNavItems = [
 
 const adminNavItems = [
   { path: '/admin/users', icon: Users, label: 'Пользователи' },
+  { path: '/admin/categories', icon: ClipboardList, label: 'Категории' },
   { path: '/admin/settings', icon: Settings, label: 'Настройки' },
 ];
 

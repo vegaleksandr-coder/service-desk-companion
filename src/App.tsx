@@ -9,6 +9,9 @@ import NewTicket from "./pages/NewTicket";
 import TicketDetails from "./pages/TicketDetails";
 import Knowledge from "./pages/Knowledge";
 import Profile from "./pages/Profile";
+import AdminUsers from "./pages/AdminUsers";
+import AdminCategories from "./pages/AdminCategories";
+import AdminSettings from "./pages/AdminSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +29,9 @@ const App = () => (
           <Route path="/tickets/:id" element={<TicketDetails />} />
           <Route path="/knowledge" element={<Knowledge />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/admin/users" element={<AdminUsers />} />
+          <Route path="/admin/categories" element={<AdminCategories />} />
+          <Route path="/admin/settings" element={<AdminSettings />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

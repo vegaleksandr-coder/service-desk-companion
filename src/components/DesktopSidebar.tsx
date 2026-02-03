@@ -11,11 +11,12 @@ import {
   ChevronLeft,
   ChevronRight
 } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/contexts/AuthContext";
 
 const mainNavItems = [
   { path: '/', icon: Home, label: 'Главная' },
@@ -37,10 +38,14 @@ const adminNavItems = [
 
 export function DesktopSidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
-  
-  // TODO: Get from auth context
-  const userRole = 'admin';
+  const { profile, role, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/login");
+  };
 
   const NavLink = ({ path, icon: Icon, label }: { path: string; icon: typeof Home; label: string }) => {
     const isActive = location.pathname === path || 
@@ -137,7 +142,7 @@ export function DesktopSidebar() {
         </div>
 
         {/* Admin navigation */}
-        {userRole === 'admin' && (
+        {role === 'admin' && (
           <>
             <Separator className="my-4 bg-sidebar-border" />
             <div className="space-y-1">
@@ -166,10 +171,10 @@ export function DesktopSidebar() {
           {!collapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-sidebar-foreground truncate">
-                Иван Иванов
+                {profile?.name || "Загрузка..."}
               </p>
               <p className="text-xs text-sidebar-foreground/60 truncate">
-                admin@company.ru
+                {profile?.email}
               </p>
             </div>
           )}
@@ -178,6 +183,7 @@ export function DesktopSidebar() {
               variant="ghost" 
               size="icon" 
               className="h-8 w-8 text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent shrink-0"
+              onClick={handleSignOut}
             >
               <LogOut className="h-4 w-4" />
             </Button>

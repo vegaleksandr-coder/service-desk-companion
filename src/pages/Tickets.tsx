@@ -2,19 +2,21 @@ import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { TicketCard } from "@/components/TicketCard";
 import { TicketFilters } from "@/components/TicketFilters";
-import { mockTickets } from "@/data/mockData";
-import { TicketStatus, TicketPriority } from "@/types/ticket";
+import { useTickets, Ticket } from "@/hooks/useTickets";
 import { useNavigate } from "react-router-dom";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+type TicketStatus = Ticket["status"];
+type TicketPriority = Ticket["priority"];
 
 export default function Tickets() {
   const navigate = useNavigate();
+  const { data: tickets, isLoading, refetch, isRefetching } = useTickets();
   const [statusFilter, setStatusFilter] = useState<TicketStatus | 'all'>('all');
   const [priorityFilter, setPriorityFilter] = useState<TicketPriority | 'all'>('all');
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const filteredTickets = mockTickets.filter((ticket) => {
+  const filteredTickets = (tickets || []).filter((ticket) => {
     if (statusFilter !== 'all' && ticket.status !== statusFilter) return false;
     if (priorityFilter !== 'all' && ticket.priority !== priorityFilter) return false;
     return true;
@@ -26,12 +28,18 @@ export default function Tickets() {
   ].filter(Boolean).length;
 
   const handleRefresh = () => {
-    setIsRefreshing(true);
-    // Simulate refresh
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 1000);
+    refetch();
   };
+
+  if (isLoading) {
+    return (
+      <Layout title="Заявки">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout title="Заявки">
@@ -47,11 +55,11 @@ export default function Tickets() {
           <button
             onClick={handleRefresh}
             className="p-2 hover:bg-secondary rounded-lg transition-colors touch-target"
-            disabled={isRefreshing}
+            disabled={isRefetching}
           >
             <RefreshCw className={cn(
               "h-5 w-5 text-muted-foreground",
-              isRefreshing && "pull-refresh-spinner"
+              isRefetching && "animate-spin"
             )} />
           </button>
         </div>

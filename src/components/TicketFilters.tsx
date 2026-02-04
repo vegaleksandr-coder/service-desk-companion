@@ -1,4 +1,4 @@
-import { Filter, SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -8,8 +8,18 @@ import {
   SelectTrigger,
   SelectValue 
 } from "@/components/ui/select";
-import { TicketStatus, TicketPriority, statusLabels, priorityLabels } from "@/types/ticket";
-import { cn } from "@/lib/utils";
+import { Ticket } from "@/hooks/useTickets";
+
+type TicketStatus = Ticket["status"];
+type TicketPriority = Ticket["priority"];
+
+const priorityLabels: Record<TicketPriority, string> = {
+  low: 'Низкий',
+  medium: 'Средний',
+  high: 'Высокий',
+  critical: 'Критический',
+  deadline: 'Срок',
+};
 
 interface TicketFiltersProps {
   statusFilter: TicketStatus | 'all';

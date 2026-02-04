@@ -2,7 +2,7 @@ import { Clock, User, MessageSquare, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Ticket, priorityLabels, statusLabels } from "@/types/ticket";
+import { Ticket } from "@/hooks/useTickets";
 import { formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
 
@@ -10,6 +10,22 @@ interface TicketCardProps {
   ticket: Ticket;
   onClick?: () => void;
 }
+
+const priorityLabels: Record<Ticket['priority'], string> = {
+  low: 'Низкий',
+  medium: 'Средний',
+  high: 'Высокий',
+  critical: 'Критический',
+  deadline: 'Срок',
+};
+
+const statusLabels: Record<Ticket['status'], string> = {
+  new: 'Новая',
+  in_progress: 'В работе',
+  awaiting: 'Ожидает ответа',
+  resolved: 'Решена',
+  closed: 'Закрыта',
+};
 
 const getPriorityVariant = (priority: Ticket['priority']) => {
   const variants: Record<Ticket['priority'], "priority-low" | "priority-medium" | "priority-high" | "priority-critical"> = {
@@ -34,7 +50,7 @@ const getStatusVariant = (status: Ticket['status']) => {
 };
 
 export function TicketCard({ ticket, onClick }: TicketCardProps) {
-  const timeAgo = formatDistanceToNow(ticket.createdAt, { 
+  const timeAgo = formatDistanceToNow(new Date(ticket.created_at), { 
     addSuffix: true, 
     locale: ru 
   });
@@ -91,7 +107,7 @@ export function TicketCard({ ticket, onClick }: TicketCardProps) {
             {/* Creator */}
             <div className="flex items-center gap-1.5">
               <Avatar className="h-5 w-5">
-                <AvatarImage src={ticket.creator?.avatar} />
+                <AvatarImage src={ticket.creator?.avatar_url || undefined} />
                 <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
                   {ticket.creator?.name?.charAt(0) || 'U'}
                 </AvatarFallback>
@@ -123,7 +139,7 @@ export function TicketCard({ ticket, onClick }: TicketCardProps) {
             <User className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-xs text-muted-foreground">Исполнитель:</span>
             <Avatar className="h-5 w-5">
-              <AvatarImage src={ticket.assignee.avatar} />
+              <AvatarImage src={ticket.assignee.avatar_url || undefined} />
               <AvatarFallback className="text-[10px] bg-accent text-accent-foreground">
                 {ticket.assignee.name?.charAt(0) || 'E'}
               </AvatarFallback>

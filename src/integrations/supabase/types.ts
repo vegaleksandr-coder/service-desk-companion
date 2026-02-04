@@ -14,6 +14,68 @@ export type Database = {
   }
   public: {
     Tables: {
+      categories: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_internal: boolean
+          ticket_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_internal?: boolean
+          ticket_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_internal?: boolean
+          ticket_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -43,6 +105,56 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      tickets: {
+        Row: {
+          assignee_id: string | null
+          category_id: string | null
+          created_at: string
+          created_by: string
+          deadline: string | null
+          description: string
+          id: string
+          priority: Database["public"]["Enums"]["ticket_priority"]
+          status: Database["public"]["Enums"]["ticket_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assignee_id?: string | null
+          category_id?: string | null
+          created_at?: string
+          created_by: string
+          deadline?: string | null
+          description: string
+          id?: string
+          priority?: Database["public"]["Enums"]["ticket_priority"]
+          status?: Database["public"]["Enums"]["ticket_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assignee_id?: string | null
+          category_id?: string | null
+          created_at?: string
+          created_by?: string
+          deadline?: string | null
+          description?: string
+          id?: string
+          priority?: Database["public"]["Enums"]["ticket_priority"]
+          status?: Database["public"]["Enums"]["ticket_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -81,6 +193,8 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "executor" | "user"
+      ticket_priority: "low" | "medium" | "high" | "critical" | "deadline"
+      ticket_status: "new" | "in_progress" | "awaiting" | "resolved" | "closed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -209,6 +323,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "executor", "user"],
+      ticket_priority: ["low", "medium", "high", "critical", "deadline"],
+      ticket_status: ["new", "in_progress", "awaiting", "resolved", "closed"],
     },
   },
 } as const

@@ -18,39 +18,57 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { mockCategories } from "@/data/mockData";
-import { TicketPriority, priorityLabels } from "@/types/ticket";
-import { CalendarIcon, Send } from "lucide-react";
+import { useCategories, useCreateTicket, Ticket } from "@/hooks/useTickets";
+import { CalendarIcon, Send, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+type TicketPriority = Ticket["priority"];
+
+const priorityLabels: Record<TicketPriority, string> = {
+  low: 'Низкий',
+  medium: 'Средний',
+  high: 'Высокий',
+  critical: 'Критический',
+  deadline: 'Срок',
+};
+
 export default function NewTicket() {
   const navigate = useNavigate();
+  const { data: categories, isLoading: categoriesLoading } = useCategories();
+  const createTicket = useCreateTicket();
+  
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
   const [priority, setPriority] = useState<TicketPriority>("medium");
   const [deadline, setDeadline] = useState<Date>();
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!title.trim() || !description.trim() || !category) {
-      toast.error("Заполните все обязательные поля");
+    if (!title.trim() || !description.trim()) {
+      toast.error("Заполните тему и описание заявки");
       return;
     }
 
-    setIsSubmitting(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    toast.success("Заявка успешно создана!");
-    navigate("/tickets");
+    try {
+      await createTicket.mutateAsync({
+        title: title.trim(),
+        description: description.trim(),
+        priority,
+        category_id: category || null,
+        deadline: deadline?.toISOString() || null,
+      });
+      
+      toast.success("Заявка успешно создана!");
+      navigate("/tickets");
+    } catch (error) {
+      toast.error("Ошибка при создании заявки");
+    }
   };
 
   return (
@@ -93,19 +111,23 @@ export default function NewTicket() {
 
               {/* Category */}
               <div className="space-y-2">
-                <Label>
-                  Категория <span className="text-destructive">*</span>
-                </Label>
+                <Label>Категория</Label>
                 <Select value={category} onValueChange={setCategory}>
                   <SelectTrigger className="touch-target">
                     <SelectValue placeholder="Выберите категорию" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockCategories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
+                    {categoriesLoading ? (
+                      <div className="p-2 text-center text-sm text-muted-foreground">
+                        Загрузка...
+                      </div>
+                    ) : (
+                      categories?.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -184,10 +206,13 @@ export default function NewTicket() {
               <Button 
                 type="submit" 
                 className="w-full touch-target"
-                disabled={isSubmitting}
+                disabled={createTicket.isPending}
               >
-                {isSubmitting ? (
-                  <>Отправка...</>
+                {createTicket.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Отправка...
+                  </>
                 ) : (
                   <>
                     <Send className="mr-2 h-4 w-4" />

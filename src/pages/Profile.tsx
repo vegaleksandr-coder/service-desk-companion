@@ -6,8 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TicketCard } from "@/components/TicketCard";
 import { StatsCard } from "@/components/StatsCard";
-import { mockTickets } from "@/data/mockData";
-import { roleLabels } from "@/types/ticket";
+import { useTickets } from "@/hooks/useTickets";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
   Mail, 
@@ -16,16 +15,24 @@ import {
   Bell,
   ClipboardList,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  Loader2
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+const roleLabels: Record<string, string> = {
+  admin: 'Администратор',
+  executor: 'Исполнитель',
+  user: 'Пользователь',
+};
+
 export default function Profile() {
   const navigate = useNavigate();
-  const { profile, role, signOut } = useAuth();
+  const { user, profile, role, signOut } = useAuth();
+  const { data: allTickets, isLoading } = useTickets();
   
-  // TODO: Replace with real data from DB
-  const myTickets = mockTickets.filter(t => t.createdBy === "1");
+  // Filter tickets created by current user
+  const myTickets = (allTickets || []).filter(t => t.created_by === user?.id);
   const myActiveTickets = myTickets.filter(t => 
     t.status !== 'closed' && t.status !== 'resolved'
   );
@@ -116,7 +123,11 @@ export default function Profile() {
           </TabsList>
 
           <TabsContent value="active" className="space-y-3 mt-4">
-            {myActiveTickets.length === 0 ? (
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : myActiveTickets.length === 0 ? (
               <Card>
                 <CardContent className="py-8 text-center">
                   <p className="text-muted-foreground">
@@ -142,7 +153,11 @@ export default function Profile() {
           </TabsContent>
 
           <TabsContent value="resolved" className="space-y-3 mt-4">
-            {myResolvedTickets.length === 0 ? (
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : myResolvedTickets.length === 0 ? (
               <Card>
                 <CardContent className="py-8 text-center">
                   <p className="text-muted-foreground">

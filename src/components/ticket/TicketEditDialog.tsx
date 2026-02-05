@@ -31,6 +31,8 @@ const priorityLabels: Record<TicketPriority, string> = {
   deadline: "Срок",
 };
 
+const NO_CATEGORY = "__none__";
+
 interface TicketEditDialogProps {
   ticket: Ticket;
   open: boolean;
@@ -41,7 +43,7 @@ export function TicketEditDialog({ ticket, open, onOpenChange }: TicketEditDialo
   const [title, setTitle] = useState(ticket.title);
   const [description, setDescription] = useState(ticket.description);
   const [priority, setPriority] = useState<TicketPriority>(ticket.priority);
-  const [categoryId, setCategoryId] = useState(ticket.category_id || "");
+  const [categoryId, setCategoryId] = useState(ticket.category_id || NO_CATEGORY);
 
   const { data: categories } = useCategories();
   const editTicket = useEditTicket();
@@ -51,7 +53,7 @@ export function TicketEditDialog({ ticket, open, onOpenChange }: TicketEditDialo
       setTitle(ticket.title);
       setDescription(ticket.description);
       setPriority(ticket.priority);
-      setCategoryId(ticket.category_id || "");
+      setCategoryId(ticket.category_id || NO_CATEGORY);
     }
   }, [open, ticket]);
 
@@ -67,7 +69,7 @@ export function TicketEditDialog({ ticket, open, onOpenChange }: TicketEditDialo
         title: title.trim(),
         description: description.trim(),
         priority,
-        category_id: categoryId || null,
+        category_id: categoryId === NO_CATEGORY ? null : categoryId,
       });
       toast.success("Заявка обновлена");
       onOpenChange(false);
@@ -128,7 +130,7 @@ export function TicketEditDialog({ ticket, open, onOpenChange }: TicketEditDialo
                   <SelectValue placeholder="Выберите" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Без категории</SelectItem>
+                  <SelectItem value={NO_CATEGORY}>Без категории</SelectItem>
                   {categories?.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
                       {cat.name}

@@ -341,3 +341,119 @@ export function useAddComment() {
     },
   });
 }
+
+export interface TicketHistoryEntry {
+  id: string;
+  ticket_id: string;
+  user_id: string;
+  action: string;
+  changes: Record<string, { old: unknown; new: unknown }> | null;
+  created_at: string;
+  user?: TicketProfile;
+}
+
+export function useTicketHistory(ticketId: string) {
+  return useQuery({
+    queryKey: ["ticket-history", ticketId],
+    queryFn: async () => {
+      const { data: history, error } = await supabase
+        .from("ticket_history")
+        .select("*")
+        .eq("ticket_id", ticketId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      if (!history || history.length === 0) return [];
+
+      // Get user profiles
+      const userIds = new Set<string>();
+      history.forEach((h) => userIds.add(h.user_id));
+
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, user_id, name, email, avatar_url")
+        .in("user_id", Array.from(userIds));
+
+      const profileMap = new Map<string, TicketProfile>();
+      profiles?.forEach((p) => {
+        profileMap.set(p.user_id, {
+          id: p.id,
+          name: p.name,
+          email: p.email,
+          avatar_url: p.avatar_url,
+        });
+      });
+
+      return history.map((h) => ({
+        ...h,
+        user: profileMap.get(h.user_id),
+      })) as TicketHistoryEntry[];
+    },
+    enabled: !!ticketId,
+  });
+}
+
+export function useEditTicket() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      title,
+      description,
+      priority,
+      category_id,
+      deadline,
+    }: {
+      id: string;
+      title?: string;
+      description?: string;
+      priority?: Ticket["priority"];
+      category_id?: string | null;
+      deadline?: string | null;
+    }) => {
+      if (!user) throw new Error("User not authenticated");
+
+      const updates: Record<string, unknown> = {};
+      if (title !== undefined) updates.title = title;
+      if (description !== undefined) updates.description = description;
+      if (priority !== undefined) updates.priority = priority;
+      if (category_id !== undefined) updates.category_id = category_id;
+      if (deadline !== undefined) updates.deadline = deadline;
+
+      const { data: ticket, error } = await supabase
+        .from("tickets")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return ticket;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["ticket", variables.id] });
+      queryClient.invalidateQueries({ queryKey: ["ticket-history", variables.id] });
+    },
+  });
+}
+
+export function useDeleteTicket() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("tickets")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tickets"] });
+    },
+  });
+}

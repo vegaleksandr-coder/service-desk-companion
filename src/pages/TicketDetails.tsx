@@ -23,11 +23,16 @@ import {
   Calendar, 
   Send,
   MessageSquare,
-  Loader2
+  Loader2,
+  Pencil,
+  Trash2
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
 import { toast } from "sonner";
+import { TicketEditDialog } from "@/components/ticket/TicketEditDialog";
+import { TicketDeleteDialog } from "@/components/ticket/TicketDeleteDialog";
+import { TicketHistory } from "@/components/ticket/TicketHistory";
 
 type TicketStatus = Ticket["status"];
 type TicketPriority = Ticket["priority"];
@@ -51,10 +56,12 @@ const priorityLabels: Record<TicketPriority, string> = {
 export default function TicketDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { role } = useAuth();
+  const { user, role } = useAuth();
   const [newComment, setNewComment] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<TicketStatus | null>(null);
   const [selectedAssignee, setSelectedAssignee] = useState<string | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   
   const { data: ticket, isLoading, error } = useTicket(id!);
   const updateTicket = useUpdateTicket();
@@ -81,6 +88,9 @@ export default function TicketDetails() {
   });
 
   const isStaff = role === 'admin' || role === 'executor';
+  const isAuthor = user?.id === ticket?.created_by;
+  const canEdit = isAuthor && ticket?.status !== 'closed';
+  const canDelete = isAuthor && (ticket?.status === 'new' || ticket?.status === 'awaiting');
 
   if (isLoading) {
     return (
@@ -169,15 +179,45 @@ export default function TicketDetails() {
     <Layout title={`#${ticket.id.slice(0, 8)}`} showSearch={false}>
       <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4">
         {/* Back button */}
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={() => navigate(-1)}
-          className="gap-1 -ml-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Назад
-        </Button>
+        <div className="flex items-center justify-between">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => navigate(-1)}
+            className="gap-1 -ml-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Назад
+          </Button>
+          
+          {/* Author actions */}
+          {(canEdit || canDelete) && (
+            <div className="flex gap-2">
+              {canEdit && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditOpen(true)}
+                  className="gap-1"
+                >
+                  <Pencil className="h-4 w-4" />
+                  <span className="hidden sm:inline">Редактировать</span>
+                </Button>
+              )}
+              {canDelete && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsDeleteOpen(true)}
+                  className="gap-1 text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Удалить</span>
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Main ticket card */}
         <Card>
@@ -238,6 +278,10 @@ export default function TicketDetails() {
                 </div>
               )}
             </div>
+
+            {/* History section */}
+            <Separator />
+            <TicketHistory ticketId={ticket.id} />
           </CardContent>
         </Card>
 
@@ -375,6 +419,25 @@ export default function TicketDetails() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit Dialog */}
+      {ticket && (
+        <TicketEditDialog
+          ticket={ticket}
+          open={isEditOpen}
+          onOpenChange={setIsEditOpen}
+        />
+      )}
+
+      {/* Delete Dialog */}
+      {ticket && (
+        <TicketDeleteDialog
+          ticketId={ticket.id}
+          ticketTitle={ticket.title}
+          open={isDeleteOpen}
+          onOpenChange={setIsDeleteOpen}
+        />
+      )}
     </Layout>
   );
 }

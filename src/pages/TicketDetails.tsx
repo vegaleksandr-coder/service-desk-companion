@@ -33,6 +33,7 @@ import { toast } from "sonner";
 import { TicketEditDialog } from "@/components/ticket/TicketEditDialog";
 import { TicketDeleteDialog } from "@/components/ticket/TicketDeleteDialog";
 import { TicketHistory } from "@/components/ticket/TicketHistory";
+import { TicketAttachments } from "@/components/ticket/TicketAttachments";
 
 type TicketStatus = Ticket["status"];
 type TicketPriority = Ticket["priority"];
@@ -284,6 +285,9 @@ export default function TicketDetails() {
             <TicketHistory ticketId={ticket.id} />
           </CardContent>
         </Card>
+
+        {/* Attachments section */}
+        <TicketAttachments ticketId={ticket.id} canUpload={isAuthor} />
 
         {/* Actions for admins/executors */}
         {isStaff && (

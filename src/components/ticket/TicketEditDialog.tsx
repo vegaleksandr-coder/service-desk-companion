@@ -17,10 +17,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { Ticket, useCategories, useEditTicket } from "@/hooks/useTickets";
-import { Loader2 } from "lucide-react";
+import { Loader2, CalendarIcon, X } from "lucide-react";
 import { toast } from "sonner";
-
+import { format } from "date-fns";
+import { ru } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 type TicketPriority = Ticket["priority"];
 
 const priorityLabels: Record<TicketPriority, string> = {
@@ -44,7 +52,9 @@ export function TicketEditDialog({ ticket, open, onOpenChange }: TicketEditDialo
   const [description, setDescription] = useState(ticket.description);
   const [priority, setPriority] = useState<TicketPriority>(ticket.priority);
   const [categoryId, setCategoryId] = useState(ticket.category_id || NO_CATEGORY);
-
+  const [deadline, setDeadline] = useState<Date | undefined>(
+    ticket.deadline ? new Date(ticket.deadline) : undefined
+  );
   const { data: categories } = useCategories();
   const editTicket = useEditTicket();
 
@@ -54,6 +64,7 @@ export function TicketEditDialog({ ticket, open, onOpenChange }: TicketEditDialo
       setDescription(ticket.description);
       setPriority(ticket.priority);
       setCategoryId(ticket.category_id || NO_CATEGORY);
+      setDeadline(ticket.deadline ? new Date(ticket.deadline) : undefined);
     }
   }, [open, ticket]);
 
@@ -70,6 +81,7 @@ export function TicketEditDialog({ ticket, open, onOpenChange }: TicketEditDialo
         description: description.trim(),
         priority,
         category_id: categoryId === NO_CATEGORY ? null : categoryId,
+        deadline: deadline ? deadline.toISOString() : null,
       });
       toast.success("Заявка обновлена");
       onOpenChange(false);
@@ -138,6 +150,46 @@ export function TicketEditDialog({ ticket, open, onOpenChange }: TicketEditDialo
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Срок исполнения</Label>
+            <div className="flex gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "flex-1 justify-start text-left font-normal",
+                      !deadline && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {deadline ? format(deadline, "d MMMM yyyy", { locale: ru }) : "Выберите дату"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={deadline}
+                    onSelect={setDeadline}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+              {deadline && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setDeadline(undefined)}
+                  className="shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
         </div>

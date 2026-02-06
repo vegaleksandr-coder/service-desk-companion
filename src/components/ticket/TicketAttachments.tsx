@@ -173,49 +173,71 @@ export function TicketAttachments({ ticketId, canUpload }: TicketAttachmentsProp
               {attachments.map((attachment) => (
                 <div
                   key={attachment.id}
-                  className="flex items-center gap-3 p-2 rounded-md border bg-muted/50 hover:bg-muted transition-colors"
+                  className="group flex flex-col gap-2 p-3 rounded-md border bg-muted/50 hover:bg-muted transition-colors"
                 >
-                  <div className="shrink-0 text-muted-foreground">
-                    {getFileIcon(attachment.mime_type)}
-                  </div>
-                  
-                  <button
-                    className="flex-1 min-w-0 text-left"
-                    onClick={() => handlePreview(attachment.file_path, attachment.mime_type)}
-                  >
-                    <p className="text-sm font-medium truncate">
-                      {attachment.file_name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatFileSize(attachment.file_size)} • {" "}
-                      {formatDistanceToNow(new Date(attachment.created_at), {
-                        addSuffix: true,
-                        locale: ru,
-                      })}
-                    </p>
-                  </button>
-
-                  <div className="flex gap-1 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleDownload(attachment.file_path, attachment.file_name)}
+                  {/* Thumbnail for images */}
+                  {attachment.mime_type.startsWith("image/") && (
+                    <button
+                      className="relative w-full h-32 rounded-md overflow-hidden bg-background cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => handlePreview(attachment.file_path, attachment.mime_type)}
                     >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    {(user?.id === attachment.uploaded_by || isStaff) && (
+                      <img
+                        src={getAttachmentUrl(attachment.file_path)}
+                        alt={attachment.file_name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    </button>
+                  )}
+
+                  {/* File info and actions */}
+                  <div className="flex items-center gap-3">
+                    {!attachment.mime_type.startsWith("image/") && (
+                      <div className="shrink-0 text-muted-foreground">
+                        {getFileIcon(attachment.mime_type)}
+                      </div>
+                    )}
+                    
+                    <button
+                      className="flex-1 min-w-0 text-left"
+                      onClick={() => handlePreview(attachment.file_path, attachment.mime_type)}
+                    >
+                      <p className="text-sm font-medium truncate">
+                        {attachment.file_name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatFileSize(attachment.file_size)} • {" "}
+                        {formatDistanceToNow(new Date(attachment.created_at), {
+                          addSuffix: true,
+                          locale: ru,
+                        })}
+                      </p>
+                    </button>
+
+                    <div className="flex gap-1 shrink-0">
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() =>
-                          setDeleteId({ id: attachment.id, filePath: attachment.file_path })
-                        }
+                        className="h-8 w-8"
+                        onClick={() => handleDownload(attachment.file_path, attachment.file_name)}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Download className="h-4 w-4" />
                       </Button>
-                    )}
+                      {(user?.id === attachment.uploaded_by || isStaff) && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() =>
+                            setDeleteId({ id: attachment.id, filePath: attachment.file_path })
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

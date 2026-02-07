@@ -36,18 +36,18 @@ import {
 import { 
   Search, 
   MoreHorizontal, 
-  UserPlus, 
   Pencil, 
   Shield, 
-  Ban,
   CheckCircle,
-  Mail
+  User as UserIcon,
+  Loader2,
 } from "lucide-react";
-import { mockUsers } from "@/data/mockData";
-import { User, UserRole, roleLabels } from "@/types/ticket";
+import { UserRole, roleLabels } from "@/types/ticket";
+import { useAdminUsers, useUpdateUserRole, AdminUser } from "@/hooks/useAdminUsers";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 const roleColors: Record<UserRole, string> = {
   admin: "bg-priority-critical/10 text-priority-critical border-priority-critical/20",
@@ -55,16 +55,23 @@ const roleColors: Record<UserRole, string> = {
   user: "bg-muted text-muted-foreground border-border",
 };
 
+const roleIcons: Record<UserRole, typeof Shield> = {
+  admin: Shield,
+  executor: CheckCircle,
+  user: UserIcon,
+};
+
 export default function AdminUsers() {
-  const [users, setUsers] = useState<User[]>(mockUsers);
+  const { user: currentUser } = useAuth();
+  const { data: users, isLoading } = useAdminUsers();
+  const updateRole = useUpdateUserRole();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newUser, setNewUser] = useState({ name: "", email: "", role: "user" as UserRole });
+  const [roleDialogUser, setRoleDialogUser] = useState<AdminUser | null>(null);
+  const [selectedRole, setSelectedRole] = useState<UserRole>("user");
 
-  const filteredUsers = users.filter((user) => {
+  const filteredUsers = (users || []).filter((user) => {
     const matchesSearch =
       user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase());
@@ -72,43 +79,54 @@ export default function AdminUsers() {
     return matchesSearch && matchesRole;
   });
 
-  const handleRoleChange = (userId: string, newRole: UserRole) => {
-    setUsers(users.map(u => 
-      u.id === userId ? { ...u, role: newRole } : u
-    ));
-    toast.success("Роль пользователя обновлена");
+  const handleOpenRoleDialog = (user: AdminUser) => {
+    setRoleDialogUser(user);
+    setSelectedRole(user.role);
   };
 
-  const handleAddUser = () => {
-    if (!newUser.name || !newUser.email) {
-      toast.error("Заполните все поля");
+  const handleSaveRole = async () => {
+    if (!roleDialogUser) return;
+
+    try {
+      await updateRole.mutateAsync({
+        userId: roleDialogUser.user_id,
+        newRole: selectedRole,
+      });
+      toast.success(`Роль пользователя ${roleDialogUser.name} обновлена на "${roleLabels[selectedRole]}"`);
+      setRoleDialogUser(null);
+    } catch {
+      toast.error("Не удалось обновить роль");
+    }
+  };
+
+  const handleQuickRoleChange = async (user: AdminUser, newRole: UserRole) => {
+    if (user.role === newRole) return;
+    if (user.user_id === currentUser?.id) {
+      toast.error("Нельзя изменить свою собственную роль");
       return;
     }
-    
-    const user: User = {
-      id: `user-${Date.now()}`,
-      name: newUser.name,
-      email: newUser.email,
-      role: newUser.role,
-      createdAt: new Date(),
-    };
-    
-    setUsers([...users, user]);
-    setNewUser({ name: "", email: "", role: "user" });
-    setIsAddDialogOpen(false);
-    toast.success("Пользователь добавлен");
+
+    try {
+      await updateRole.mutateAsync({ userId: user.user_id, newRole });
+      toast.success(`Роль пользователя ${user.name} обновлена на "${roleLabels[newRole]}"`);
+    } catch {
+      toast.error("Не удалось обновить роль");
+    }
   };
 
-  const handleUpdateUser = () => {
-    if (!editingUser) return;
-    
-    setUsers(users.map(u => 
-      u.id === editingUser.id ? editingUser : u
-    ));
-    setIsEditDialogOpen(false);
-    setEditingUser(null);
-    toast.success("Данные пользователя обновлены");
-  };
+  const adminCount = (users || []).filter((u) => u.role === "admin").length;
+  const executorCount = (users || []).filter((u) => u.role === "executor").length;
+  const userCount = (users || []).filter((u) => u.role === "user").length;
+
+  if (isLoading) {
+    return (
+      <Layout title="Управление пользователями">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout title="Управление пользователями">
@@ -117,46 +135,34 @@ export default function AdminUsers() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="pt-6">
-              <div className="text-2xl font-bold">{users.length}</div>
+              <div className="text-2xl font-bold">{(users || []).length}</div>
               <p className="text-xs text-muted-foreground">Всего пользователей</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
-              <div className="text-2xl font-bold text-priority-critical">
-                {users.filter(u => u.role === 'admin').length}
-              </div>
+              <div className="text-2xl font-bold text-priority-critical">{adminCount}</div>
               <p className="text-xs text-muted-foreground">Администраторов</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
-              <div className="text-2xl font-bold text-priority-high">
-                {users.filter(u => u.role === 'executor').length}
-              </div>
+              <div className="text-2xl font-bold text-priority-high">{executorCount}</div>
               <p className="text-xs text-muted-foreground">Исполнителей</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
-              <div className="text-2xl font-bold text-muted-foreground">
-                {users.filter(u => u.role === 'user').length}
-              </div>
+              <div className="text-2xl font-bold text-muted-foreground">{userCount}</div>
               <p className="text-xs text-muted-foreground">Пользователей</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Filters and Actions */}
+        {/* Filters */}
         <Card>
           <CardHeader className="pb-4">
-            <div className="flex flex-col sm:flex-row gap-4 justify-between">
-              <CardTitle>Пользователи</CardTitle>
-              <Button onClick={() => setIsAddDialogOpen(true)}>
-                <UserPlus className="h-4 w-4 mr-2" />
-                Добавить пользователя
-              </Button>
-            </div>
+            <CardTitle>Пользователи</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -196,15 +202,20 @@ export default function AdminUsers() {
                 </TableHeader>
                 <TableBody>
                   {filteredUsers.map((user) => (
-                    <TableRow key={user.id}>
+                    <TableRow key={user.user_id}>
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-3">
                           <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center">
                             <span className="text-sm font-medium text-primary">
-                              {user.name.charAt(0)}
+                              {user.name.charAt(0).toUpperCase()}
                             </span>
                           </div>
-                          {user.name}
+                          <div>
+                            <span>{user.name}</span>
+                            {user.user_id === currentUser?.id && (
+                              <span className="ml-2 text-xs text-muted-foreground">(вы)</span>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
@@ -216,7 +227,7 @@ export default function AdminUsers() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {format(user.createdAt, "d MMM yyyy", { locale: ru })}
+                        {format(new Date(user.created_at), "d MMM yyyy", { locale: ru })}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -226,25 +237,28 @@ export default function AdminUsers() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => {
-                              setEditingUser(user);
-                              setIsEditDialogOpen(true);
-                            }}>
+                            <DropdownMenuItem onClick={() => handleOpenRoleDialog(user)}>
                               <Pencil className="h-4 w-4 mr-2" />
-                              Редактировать
+                              Изменить роль
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'admin')}>
-                              <Shield className="h-4 w-4 mr-2" />
-                              Сделать админом
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'executor')}>
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              Сделать исполнителем
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
-                              <Ban className="h-4 w-4 mr-2" />
-                              Заблокировать
-                            </DropdownMenuItem>
+                            {user.role !== "admin" && (
+                              <DropdownMenuItem onClick={() => handleQuickRoleChange(user, "admin")}>
+                                <Shield className="h-4 w-4 mr-2" />
+                                Сделать админом
+                              </DropdownMenuItem>
+                            )}
+                            {user.role !== "executor" && (
+                              <DropdownMenuItem onClick={() => handleQuickRoleChange(user, "executor")}>
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Сделать исполнителем
+                              </DropdownMenuItem>
+                            )}
+                            {user.role !== "user" && (
+                              <DropdownMenuItem onClick={() => handleQuickRoleChange(user, "user")}>
+                                <UserIcon className="h-4 w-4 mr-2" />
+                                Сделать пользователем
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -257,17 +271,22 @@ export default function AdminUsers() {
             {/* Mobile Cards */}
             <div className="md:hidden space-y-3">
               {filteredUsers.map((user) => (
-                <Card key={user.id}>
+                <Card key={user.user_id}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                           <span className="text-sm font-medium text-primary">
-                            {user.name.charAt(0)}
+                            {user.name.charAt(0).toUpperCase()}
                           </span>
                         </div>
                         <div>
-                          <p className="font-medium">{user.name}</p>
+                          <p className="font-medium">
+                            {user.name}
+                            {user.user_id === currentUser?.id && (
+                              <span className="ml-1 text-xs text-muted-foreground">(вы)</span>
+                            )}
+                          </p>
                           <p className="text-sm text-muted-foreground">{user.email}</p>
                         </div>
                       </div>
@@ -278,21 +297,28 @@ export default function AdminUsers() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => {
-                            setEditingUser(user);
-                            setIsEditDialogOpen(true);
-                          }}>
+                          <DropdownMenuItem onClick={() => handleOpenRoleDialog(user)}>
                             <Pencil className="h-4 w-4 mr-2" />
-                            Редактировать
+                            Изменить роль
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'admin')}>
-                            <Shield className="h-4 w-4 mr-2" />
-                            Сделать админом
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">
-                            <Ban className="h-4 w-4 mr-2" />
-                            Заблокировать
-                          </DropdownMenuItem>
+                          {user.role !== "admin" && (
+                            <DropdownMenuItem onClick={() => handleQuickRoleChange(user, "admin")}>
+                              <Shield className="h-4 w-4 mr-2" />
+                              Сделать админом
+                            </DropdownMenuItem>
+                          )}
+                          {user.role !== "executor" && (
+                            <DropdownMenuItem onClick={() => handleQuickRoleChange(user, "executor")}>
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Сделать исполнителем
+                            </DropdownMenuItem>
+                          )}
+                          {user.role !== "user" && (
+                            <DropdownMenuItem onClick={() => handleQuickRoleChange(user, "user")}>
+                              <UserIcon className="h-4 w-4 mr-2" />
+                              Сделать пользователем
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -301,7 +327,7 @@ export default function AdminUsers() {
                         {roleLabels[user.role]}
                       </Badge>
                       <span className="text-xs text-muted-foreground">
-                        {format(user.createdAt, "d MMM yyyy", { locale: ru })}
+                        {format(new Date(user.created_at), "d MMM yyyy", { locale: ru })}
                       </span>
                     </div>
                   </CardContent>
@@ -318,111 +344,56 @@ export default function AdminUsers() {
         </Card>
       </div>
 
-      {/* Add User Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+      {/* Change Role Dialog */}
+      <Dialog open={!!roleDialogUser} onOpenChange={(open) => !open && setRoleDialogUser(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Добавить пользователя</DialogTitle>
+            <DialogTitle>Изменить роль</DialogTitle>
             <DialogDescription>
-              Заполните данные нового пользователя
+              Выберите новую роль для пользователя{" "}
+              <span className="font-medium text-foreground">{roleDialogUser?.name}</span>
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Имя</label>
-              <Input
-                placeholder="Иван Иванов"
-                value={newUser.name}
-                onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Email</label>
-              <Input
-                type="email"
-                placeholder="ivan@example.com"
-                value={newUser.email}
-                onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Роль</label>
-              <Select
-                value={newUser.role}
-                onValueChange={(v) => setNewUser({ ...newUser, role: v as UserRole })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="user">Пользователь</SelectItem>
-                  <SelectItem value="executor">Исполнитель</SelectItem>
-                  <SelectItem value="admin">Администратор</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-3 py-4">
+            {(["admin", "executor", "user"] as UserRole[]).map((role) => {
+              const Icon = roleIcons[role];
+              const isSelected = selectedRole === role;
+              return (
+                <button
+                  key={role}
+                  onClick={() => setSelectedRole(role)}
+                  className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                    isSelected
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <Icon className={`h-5 w-5 ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
+                  <div className="text-left">
+                    <div className={`font-medium ${isSelected ? "text-primary" : ""}`}>
+                      {roleLabels[role]}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {role === "admin" && "Полный доступ к системе"}
+                      {role === "executor" && "Может обрабатывать заявки"}
+                      {role === "user" && "Может создавать заявки"}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setRoleDialogUser(null)}>
               Отмена
             </Button>
-            <Button onClick={handleAddUser}>
-              <Mail className="h-4 w-4 mr-2" />
-              Отправить приглашение
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit User Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Редактировать пользователя</DialogTitle>
-            <DialogDescription>
-              Измените данные пользователя
-            </DialogDescription>
-          </DialogHeader>
-          {editingUser && (
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Имя</label>
-                <Input
-                  value={editingUser.name}
-                  onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Email</label>
-                <Input
-                  type="email"
-                  value={editingUser.email}
-                  onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Роль</label>
-                <Select
-                  value={editingUser.role}
-                  onValueChange={(v) => setEditingUser({ ...editingUser, role: v as UserRole })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="user">Пользователь</SelectItem>
-                    <SelectItem value="executor">Исполнитель</SelectItem>
-                    <SelectItem value="admin">Администратор</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              Отмена
-            </Button>
-            <Button onClick={handleUpdateUser}>
+            <Button
+              onClick={handleSaveRole}
+              disabled={updateRole.isPending || selectedRole === roleDialogUser?.role}
+            >
+              {updateRole.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : null}
               Сохранить
             </Button>
           </DialogFooter>

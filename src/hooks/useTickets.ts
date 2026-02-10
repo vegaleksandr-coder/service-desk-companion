@@ -457,3 +457,56 @@ export function useDeleteTicket() {
     },
   });
 }
+
+export function useCreateCategory() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { name: string; description?: string | null; icon?: string | null; color?: string | null }) => {
+      const { data: cat, error } = await supabase
+        .from("categories")
+        .insert(data)
+        .select()
+        .single();
+      if (error) throw error;
+      return cat as Category;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+    },
+  });
+}
+
+export function useUpdateCategory() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...data }: { id: string; name?: string; description?: string | null; icon?: string | null; color?: string | null }) => {
+      const { data: cat, error } = await supabase
+        .from("categories")
+        .update(data)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return cat as Category;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+    },
+  });
+}
+
+export function useDeleteCategory() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("categories").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+    },
+  });
+}

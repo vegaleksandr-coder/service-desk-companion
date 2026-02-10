@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Tickets from "./pages/Tickets";
+import ExecutorDashboard from "./pages/ExecutorDashboard";
 import NewTicket from "./pages/NewTicket";
 import TicketDetails from "./pages/TicketDetails";
 import Knowledge from "./pages/Knowledge";
@@ -35,6 +36,7 @@ const App = () => (
             {/* Protected routes */}
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+            <Route path="/executor" element={<ProtectedRoute requiredRole={["executor", "admin"]}><ExecutorDashboard /></ProtectedRoute>} />
             <Route path="/tickets" element={<ProtectedRoute><Tickets /></ProtectedRoute>} />
             <Route path="/tickets/new" element={<ProtectedRoute><NewTicket /></ProtectedRoute>} />
             <Route path="/tickets/:id" element={<ProtectedRoute><TicketDetails /></ProtectedRoute>} />

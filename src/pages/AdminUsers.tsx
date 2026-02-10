@@ -22,10 +22,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Search, MoreHorizontal, Pencil, Shield, CheckCircle,
-  User as UserIcon, Loader2, Plus, FolderOpen, Trash2,
+  User as UserIcon, Loader2, Plus, FolderOpen, Trash2, KeyRound,
 } from "lucide-react";
 import { UserRole, roleLabels } from "@/types/ticket";
-import { useAdminUsers, useUpdateUserRole, useUpdateUserProfile, useCreateUser, useDeleteUser, AdminUser } from "@/hooks/useAdminUsers";
+import { useAdminUsers, useUpdateUserRole, useUpdateUserProfile, useCreateUser, useDeleteUser, useResetUserPassword, AdminUser } from "@/hooks/useAdminUsers";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { toast } from "sonner";
@@ -51,7 +51,10 @@ export default function AdminUsers() {
   const updateProfile = useUpdateUserProfile();
   const createUser = useCreateUser();
   const deleteUser = useDeleteUser();
+  const resetPassword = useResetUserPassword();
   const [deleteDialogUser, setDeleteDialogUser] = useState<AdminUser | null>(null);
+  const [passwordDialogUser, setPasswordDialogUser] = useState<AdminUser | null>(null);
+  const [resetNewPassword, setResetNewPassword] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
@@ -182,6 +185,10 @@ export default function AdminUsers() {
       <DropdownMenuItem onClick={() => setCategoriesUser(user)}>
         <FolderOpen className="h-4 w-4 mr-2" />
         Категории
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => { setPasswordDialogUser(user); setResetNewPassword(""); }}>
+        <KeyRound className="h-4 w-4 mr-2" />
+        Сбросить пароль
       </DropdownMenuItem>
       {user.user_id !== currentUser?.id && (
         <DropdownMenuItem
@@ -539,6 +546,52 @@ export default function AdminUsers() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={!!passwordDialogUser} onOpenChange={(open) => !open && setPasswordDialogUser(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Сбросить пароль</DialogTitle>
+            <DialogDescription>
+              Установите новый пароль для пользователя «{passwordDialogUser?.name}»
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Новый пароль</label>
+              <Input
+                type="password"
+                placeholder="Минимум 6 символов"
+                value={resetNewPassword}
+                onChange={(e) => setResetNewPassword(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPasswordDialogUser(null)}>Отмена</Button>
+            <Button
+              onClick={async () => {
+                if (!passwordDialogUser || !resetNewPassword) return;
+                if (resetNewPassword.length < 6) {
+                  toast.error("Пароль должен быть не менее 6 символов");
+                  return;
+                }
+                try {
+                  await resetPassword.mutateAsync({ userId: passwordDialogUser.user_id, newPassword: resetNewPassword });
+                  toast.success(`Пароль пользователя ${passwordDialogUser.name} обновлён`);
+                  setPasswordDialogUser(null);
+                } catch (error: any) {
+                  toast.error(error.message || "Ошибка при сбросе пароля");
+                }
+              }}
+              disabled={resetPassword.isPending || resetNewPassword.length < 6}
+            >
+              {resetPassword.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Сохранить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

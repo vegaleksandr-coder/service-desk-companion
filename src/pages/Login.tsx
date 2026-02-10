@@ -84,8 +84,12 @@ export default function Login() {
                 minLength={6}
               />
             </div>
+            <div className="flex justify-end">
+              <Link to="/forgot-password" className="text-sm text-primary hover:underline">
+                Забыли пароль?
+              </Link>
+            </div>
           </CardContent>
-          
           <CardFooter className="flex flex-col gap-4">
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

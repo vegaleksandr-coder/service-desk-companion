@@ -47,6 +47,24 @@ export function useAdminUsers() {
   });
 }
 
+export function useUpdateUserProfile() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ userId, name, email }: { userId: string; name: string; email: string }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ name, email })
+        .eq("user_id", userId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+    },
+  });
+}
+
 export function useUpdateUserRole() {
   const queryClient = useQueryClient();
 

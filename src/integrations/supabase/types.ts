@@ -82,6 +82,38 @@ export type Database = {
         }
         Relationships: []
       }
+      category_members: {
+        Row: {
+          category_id: string
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["category_role"]
+          user_id: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["category_role"]
+          user_id: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["category_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "category_members_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       comments: {
         Row: {
           content: string
@@ -266,9 +298,22 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_category_admin: {
+        Args: { _category_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_category_executor: {
+        Args: { _category_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_category_member: {
+        Args: { _category_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "executor" | "user"
+      category_role: "admin" | "executor"
       ticket_priority: "low" | "medium" | "high" | "critical" | "deadline"
       ticket_status: "new" | "in_progress" | "awaiting" | "resolved" | "closed"
     }
@@ -399,6 +444,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "executor", "user"],
+      category_role: ["admin", "executor"],
       ticket_priority: ["low", "medium", "high", "critical", "deadline"],
       ticket_status: ["new", "in_progress", "awaiting", "resolved", "closed"],
     },

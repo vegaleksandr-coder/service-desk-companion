@@ -16,8 +16,7 @@ import {
 } from "@/components/ui/select";
 import { useTicket, useUpdateTicket, useAddComment, Ticket } from "@/hooks/useTickets";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useCategoryExecutors, useUserCategoryRole } from "@/hooks/useCategoryMembers";
 import { 
   ArrowLeft, 
   Calendar, 
@@ -68,27 +67,14 @@ export default function TicketDetails() {
   const updateTicket = useUpdateTicket();
   const addComment = useAddComment();
 
-  // Fetch executors for assignment
-  const { data: executors } = useQuery({
-    queryKey: ["executors"],
-    queryFn: async () => {
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("user_id, role")
-        .in("role", ["admin", "executor"]);
+  // Fetch category-based executors
+  const { data: categoryExecutors } = useCategoryExecutors(ticket?.category_id);
+  const { data: userCategoryRole } = useUserCategoryRole(ticket?.category_id);
 
-      if (!roles || roles.length === 0) return [];
-
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, name, email")
-        .in("user_id", roles.map(r => r.user_id));
-
-      return profiles || [];
-    },
-  });
-
-  const isStaff = role === 'admin' || role === 'executor';
+  const isGlobalAdmin = role === 'admin';
+  const isCategoryAdmin = userCategoryRole === 'admin';
+  const isCategoryMember = !!userCategoryRole;
+  const canManageTicket = isGlobalAdmin || isCategoryAdmin;
   const isAuthor = user?.id === ticket?.created_by;
   const canEdit = isAuthor && ticket?.status !== 'closed';
   const canDelete = isAuthor && (ticket?.status === 'new' || ticket?.status === 'awaiting');
@@ -290,7 +276,7 @@ export default function TicketDetails() {
         <TicketAttachments ticketId={ticket.id} canUpload={isAuthor} />
 
         {/* Actions for admins/executors */}
-        {isStaff && (
+        {canManageTicket && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Управление заявкой</CardTitle>
@@ -329,9 +315,9 @@ export default function TicketDetails() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">Не назначен</SelectItem>
-                      {executors?.map((user) => (
-                        <SelectItem key={user.user_id} value={user.user_id}>
-                          {user.name}
+                      {categoryExecutors?.map((member) => (
+                        <SelectItem key={member.user_id} value={member.user_id}>
+                          {member.name} {member.category_role === 'admin' ? '(Админ)' : ''}
                         </SelectItem>
                       ))}
                     </SelectContent>

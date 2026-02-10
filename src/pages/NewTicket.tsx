@@ -25,6 +25,9 @@ import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 type TicketPriority = Ticket["priority"];
 
@@ -38,8 +41,34 @@ const priorityLabels: Record<TicketPriority, string> = {
 
 export default function NewTicket() {
   const navigate = useNavigate();
+  const { user, role } = useAuth();
   const { data: categories, isLoading: categoriesLoading } = useCategories();
   const createTicket = useCreateTicket();
+
+  // Fetch executor's category memberships to exclude them
+  const { data: myMemberships } = useQuery({
+    queryKey: ["my-category-memberships", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("category_members")
+        .select("category_id")
+        .eq("user_id", user.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: role === "executor" && !!user,
+  });
+
+  const filteredCategories = (() => {
+    if (!categories) return [];
+    if (role === "admin") return categories;
+    if (role === "executor") {
+      const myCatIds = new Set(myMemberships?.map((m) => m.category_id) || []);
+      return categories.filter((c) => !myCatIds.has(c.id));
+    }
+    return categories;
+  })();
   
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -121,8 +150,12 @@ export default function NewTicket() {
                       <div className="p-2 text-center text-sm text-muted-foreground">
                         Загрузка...
                       </div>
+                    ) : filteredCategories.length === 0 ? (
+                      <div className="p-2 text-center text-sm text-muted-foreground">
+                        Нет доступных категорий
+                      </div>
                     ) : (
-                      categories?.map((cat) => (
+                      filteredCategories.map((cat) => (
                         <SelectItem key={cat.id} value={cat.id}>
                           {cat.name}
                         </SelectItem>

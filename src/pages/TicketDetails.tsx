@@ -62,6 +62,7 @@ export default function TicketDetails() {
   const [selectedAssignee, setSelectedAssignee] = useState<string | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [statusComment, setStatusComment] = useState("");
   
   const { data: ticket, isLoading, error } = useTicket(id!);
   const updateTicket = useUpdateTicket();
@@ -74,7 +75,9 @@ export default function TicketDetails() {
   const isGlobalAdmin = role === 'admin';
   const isCategoryAdmin = userCategoryRole === 'admin';
   const isCategoryMember = !!userCategoryRole;
+  const isAssignee = user?.id === ticket?.assignee_id;
   const canManageTicket = isGlobalAdmin || isCategoryAdmin;
+  const canChangeStatus = canManageTicket || isAssignee;
   const isAuthor = user?.id === ticket?.created_by;
   const canEdit = isAuthor && ticket?.status !== 'closed';
   const canDelete = isAuthor && (ticket?.status === 'new' || ticket?.status === 'awaiting');
@@ -139,13 +142,16 @@ export default function TicketDetails() {
     }
   };
 
+  const needsComment = (status: TicketStatus | null) => 
+    status === 'awaiting' || status === 'closed';
+
   const handleSaveChanges = async () => {
     const updates: { status?: TicketStatus; assignee_id?: string | null } = {};
     
     if (selectedStatus && selectedStatus !== ticket.status) {
       updates.status = selectedStatus;
     }
-    if (selectedAssignee !== null && selectedAssignee !== ticket.assignee_id) {
+    if (canManageTicket && selectedAssignee !== null && selectedAssignee !== ticket.assignee_id) {
       updates.assignee_id = selectedAssignee || null;
     }
 
@@ -154,9 +160,23 @@ export default function TicketDetails() {
       return;
     }
 
+    // Require comment for awaiting/closed
+    if (needsComment(updates.status) && !statusComment.trim()) {
+      toast.error("Для этого статуса необходимо добавить комментарий");
+      return;
+    }
+
     try {
+      // Add comment first if provided
+      if (statusComment.trim()) {
+        await addComment.mutateAsync({
+          ticket_id: ticket.id,
+          content: statusComment.trim(),
+        });
+      }
       await updateTicket.mutateAsync({ id: ticket.id, ...updates });
       toast.success("Изменения сохранены");
+      setStatusComment("");
     } catch (error) {
       toast.error("Ошибка при сохранении");
     }
@@ -276,7 +296,7 @@ export default function TicketDetails() {
         <TicketAttachments ticketId={ticket.id} canUpload={isAuthor} />
 
         {/* Actions for admins/executors */}
-        {canManageTicket && (
+        {canChangeStatus && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Управление заявкой</CardTitle>
@@ -303,27 +323,46 @@ export default function TicketDetails() {
                   </Select>
                 </div>
 
-                {/* Assignee */}
-                <div className="space-y-2">
-                  <label className="text-sm text-muted-foreground">Исполнитель</label>
-                  <Select 
-                    defaultValue={ticket.assignee_id || "__none__"}
-                    onValueChange={(value) => setSelectedAssignee(value === "__none__" ? "" : value)}
-                  >
-                    <SelectTrigger className="touch-target">
-                      <SelectValue placeholder="Назначить исполнителя" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">Не назначен</SelectItem>
-                      {categoryExecutors?.map((member) => (
-                        <SelectItem key={member.user_id} value={member.user_id}>
-                          {member.name} {member.category_role === 'admin' ? '(Админ)' : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Assignee - only for admins */}
+                {canManageTicket && (
+                  <div className="space-y-2">
+                    <label className="text-sm text-muted-foreground">Исполнитель</label>
+                    <Select 
+                      defaultValue={ticket.assignee_id || "__none__"}
+                      onValueChange={(value) => setSelectedAssignee(value === "__none__" ? "" : value)}
+                    >
+                      <SelectTrigger className="touch-target">
+                        <SelectValue placeholder="Назначить исполнителя" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Не назначен</SelectItem>
+                        {categoryExecutors?.map((member) => (
+                          <SelectItem key={member.user_id} value={member.user_id}>
+                            {member.name} {member.category_role === 'admin' ? '(Админ)' : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
+
+              {/* Comment required for awaiting/closed */}
+              {needsComment(selectedStatus) && (
+                <div className="space-y-2">
+                  <label className="text-sm text-muted-foreground">
+                    Комментарий <span className="text-destructive">*</span>
+                  </label>
+                  <Textarea
+                    placeholder="Укажите причину смены статуса..."
+                    value={statusComment}
+                    onChange={(e) => setStatusComment(e.target.value)}
+                    rows={3}
+                    className="resize-none"
+                  />
+                </div>
+              )}
+
               <Button 
                 className="w-full md:w-auto"
                 onClick={handleSaveChanges}

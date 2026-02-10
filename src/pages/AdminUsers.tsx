@@ -21,7 +21,7 @@ import {
   User as UserIcon, Loader2, Plus, FolderOpen,
 } from "lucide-react";
 import { UserRole, roleLabels } from "@/types/ticket";
-import { useAdminUsers, useUpdateUserRole, useCreateUser, AdminUser } from "@/hooks/useAdminUsers";
+import { useAdminUsers, useUpdateUserRole, useUpdateUserProfile, useCreateUser, AdminUser } from "@/hooks/useAdminUsers";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { toast } from "sonner";
@@ -44,6 +44,7 @@ export default function AdminUsers() {
   const { user: currentUser } = useAuth();
   const { data: users, isLoading } = useAdminUsers();
   const updateRole = useUpdateUserRole();
+  const updateProfile = useUpdateUserProfile();
   const createUser = useCreateUser();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -56,6 +57,9 @@ export default function AdminUsers() {
   const [newPassword, setNewPassword] = useState("");
   const [newRole, setNewRole] = useState<UserRole>("user");
   const [categoriesUser, setCategoriesUser] = useState<AdminUser | null>(null);
+  const [editDialogUser, setEditDialogUser] = useState<AdminUser | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
 
   const filteredUsers = (users || []).filter((user) => {
     const matchesSearch =
@@ -64,6 +68,23 @@ export default function AdminUsers() {
     const matchesRole = roleFilter === "all" || user.role === roleFilter;
     return matchesSearch && matchesRole;
   });
+
+  const handleOpenEditDialog = (user: AdminUser) => {
+    setEditDialogUser(user);
+    setEditName(user.name);
+    setEditEmail(user.email);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editDialogUser || !editName || !editEmail) return;
+    try {
+      await updateProfile.mutateAsync({ userId: editDialogUser.user_id, name: editName, email: editEmail });
+      toast.success(`Данные пользователя обновлены`);
+      setEditDialogUser(null);
+    } catch {
+      toast.error("Не удалось обновить данные");
+    }
+  };
 
   const handleOpenRoleDialog = (user: AdminUser) => {
     setRoleDialogUser(user);
@@ -133,32 +154,18 @@ export default function AdminUsers() {
 
   const UserDropdownItems = ({ user }: { user: AdminUser }) => (
     <>
-      <DropdownMenuItem onClick={() => handleOpenRoleDialog(user)}>
+      <DropdownMenuItem onClick={() => handleOpenEditDialog(user)}>
         <Pencil className="h-4 w-4 mr-2" />
+        Редактировать
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => handleOpenRoleDialog(user)}>
+        <Shield className="h-4 w-4 mr-2" />
         Изменить роль
       </DropdownMenuItem>
       <DropdownMenuItem onClick={() => setCategoriesUser(user)}>
         <FolderOpen className="h-4 w-4 mr-2" />
         Категории
       </DropdownMenuItem>
-      {user.role !== "admin" && (
-        <DropdownMenuItem onClick={() => handleQuickRoleChange(user, "admin")}>
-          <Shield className="h-4 w-4 mr-2" />
-          Сделать админом
-        </DropdownMenuItem>
-      )}
-      {user.role !== "executor" && (
-        <DropdownMenuItem onClick={() => handleQuickRoleChange(user, "executor")}>
-          <CheckCircle className="h-4 w-4 mr-2" />
-          Сделать исполнителем
-        </DropdownMenuItem>
-      )}
-      {user.role !== "user" && (
-        <DropdownMenuItem onClick={() => handleQuickRoleChange(user, "user")}>
-          <UserIcon className="h-4 w-4 mr-2" />
-          Сделать пользователем
-        </DropdownMenuItem>
-      )}
     </>
   );
 
@@ -442,6 +449,33 @@ export default function AdminUsers() {
               disabled={updateRole.isPending || selectedRole === roleDialogUser?.role}
             >
               {updateRole.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Сохранить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={!!editDialogUser} onOpenChange={(open) => !open && setEditDialogUser(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Редактировать пользователя</DialogTitle>
+            <DialogDescription>Измените данные пользователя</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Имя</label>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Email</label>
+              <Input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogUser(null)}>Отмена</Button>
+            <Button onClick={handleSaveEdit} disabled={updateProfile.isPending || (!editName || !editEmail)}>
+              {updateProfile.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Сохранить
             </Button>
           </DialogFooter>

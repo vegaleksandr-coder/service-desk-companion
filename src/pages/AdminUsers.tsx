@@ -1,5 +1,9 @@
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,10 +22,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Search, MoreHorizontal, Pencil, Shield, CheckCircle,
-  User as UserIcon, Loader2, Plus, FolderOpen,
+  User as UserIcon, Loader2, Plus, FolderOpen, Trash2,
 } from "lucide-react";
 import { UserRole, roleLabels } from "@/types/ticket";
-import { useAdminUsers, useUpdateUserRole, useUpdateUserProfile, useCreateUser, AdminUser } from "@/hooks/useAdminUsers";
+import { useAdminUsers, useUpdateUserRole, useUpdateUserProfile, useCreateUser, useDeleteUser, AdminUser } from "@/hooks/useAdminUsers";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { toast } from "sonner";
@@ -46,6 +50,8 @@ export default function AdminUsers() {
   const updateRole = useUpdateUserRole();
   const updateProfile = useUpdateUserProfile();
   const createUser = useCreateUser();
+  const deleteUser = useDeleteUser();
+  const [deleteDialogUser, setDeleteDialogUser] = useState<AdminUser | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
@@ -152,6 +158,17 @@ export default function AdminUsers() {
     );
   }
 
+  const handleDeleteUser = async () => {
+    if (!deleteDialogUser) return;
+    try {
+      await deleteUser.mutateAsync(deleteDialogUser.user_id);
+      toast.success(`Пользователь ${deleteDialogUser.name} удалён`);
+      setDeleteDialogUser(null);
+    } catch (error: any) {
+      toast.error(error.message || "Ошибка при удалении пользователя");
+    }
+  };
+
   const UserDropdownItems = ({ user }: { user: AdminUser }) => (
     <>
       <DropdownMenuItem onClick={() => handleOpenEditDialog(user)}>
@@ -166,6 +183,15 @@ export default function AdminUsers() {
         <FolderOpen className="h-4 w-4 mr-2" />
         Категории
       </DropdownMenuItem>
+      {user.user_id !== currentUser?.id && (
+        <DropdownMenuItem
+          onClick={() => setDeleteDialogUser(user)}
+          className="text-destructive focus:text-destructive"
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          Удалить
+        </DropdownMenuItem>
+      )}
     </>
   );
 
@@ -489,6 +515,30 @@ export default function AdminUsers() {
         open={!!categoriesUser}
         onOpenChange={(open) => !open && setCategoriesUser(null)}
       />
+
+      {/* Delete User Confirmation */}
+      <AlertDialog open={!!deleteDialogUser} onOpenChange={(open) => !open && setDeleteDialogUser(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить пользователя?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Вы уверены, что хотите удалить пользователя «{deleteDialogUser?.name}» ({deleteDialogUser?.email})? 
+              Все данные пользователя будут удалены. Это действие нельзя отменить.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteUser}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteUser.isPending}
+            >
+              {deleteUser.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }

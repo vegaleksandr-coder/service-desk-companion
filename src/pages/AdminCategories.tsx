@@ -83,6 +83,77 @@ const getColorClass = (colorName?: string) => {
   return found ? found.class : "bg-primary";
 };
 
+const CategoryForm = ({ 
+  data, 
+  onChange 
+}: { 
+  data: Partial<Category>; 
+  onChange: (data: Partial<Category>) => void;
+}) => (
+  <div className="space-y-4 py-4">
+    <div className="space-y-2">
+      <label className="text-sm font-medium">Название *</label>
+      <Input
+        placeholder="Техническая поддержка"
+        value={data.name || ""}
+        onChange={(e) => onChange({ ...data, name: e.target.value })}
+      />
+    </div>
+    <div className="space-y-2">
+      <label className="text-sm font-medium">Описание</label>
+      <Textarea
+        placeholder="Описание категории..."
+        value={data.description || ""}
+        onChange={(e) => onChange({ ...data, description: e.target.value })}
+        rows={3}
+      />
+    </div>
+    <div className="grid grid-cols-2 gap-4">
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Иконка</label>
+        <div className="flex flex-wrap gap-2">
+          {iconOptions.map((opt) => {
+            const Icon = opt.icon;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => onChange({ ...data, icon: opt.value })}
+                className={`p-2 rounded-lg border-2 transition-colors ${
+                  data.icon === opt.value 
+                    ? "border-primary bg-primary/10" 
+                    : "border-border hover:border-primary/50"
+                }`}
+                title={opt.label}
+              >
+                <Icon className="h-5 w-5" />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Цвет</label>
+        <div className="flex flex-wrap gap-2">
+          {colorOptions.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onChange({ ...data, color: opt.value })}
+              className={`w-8 h-8 rounded-full ${opt.class} transition-all ${
+                data.color === opt.value 
+                  ? "ring-2 ring-offset-2 ring-primary" 
+                  : "hover:scale-110"
+              }`}
+              title={opt.label}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 export default function AdminCategories() {
   const [categories, setCategories] = useState<Category[]>(mockCategories);
   const [searchQuery, setSearchQuery] = useState("");
@@ -140,77 +211,6 @@ export default function AdminCategories() {
     setDeleteCategory(null);
     toast.success("Категория удалена");
   };
-
-  const CategoryForm = ({ 
-    data, 
-    onChange 
-  }: { 
-    data: Partial<Category>; 
-    onChange: (data: Partial<Category>) => void;
-  }) => (
-    <div className="space-y-4 py-4">
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Название *</label>
-        <Input
-          placeholder="Техническая поддержка"
-          value={data.name || ""}
-          onChange={(e) => onChange({ ...data, name: e.target.value })}
-        />
-      </div>
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Описание</label>
-        <Textarea
-          placeholder="Описание категории..."
-          value={data.description || ""}
-          onChange={(e) => onChange({ ...data, description: e.target.value })}
-          rows={3}
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Иконка</label>
-          <div className="flex flex-wrap gap-2">
-            {iconOptions.map((opt) => {
-              const Icon = opt.icon;
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => onChange({ ...data, icon: opt.value })}
-                  className={`p-2 rounded-lg border-2 transition-colors ${
-                    data.icon === opt.value 
-                      ? "border-primary bg-primary/10" 
-                      : "border-border hover:border-primary/50"
-                  }`}
-                  title={opt.label}
-                >
-                  <Icon className="h-5 w-5" />
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Цвет</label>
-          <div className="flex flex-wrap gap-2">
-            {colorOptions.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => onChange({ ...data, color: opt.value })}
-                className={`w-8 h-8 rounded-full ${opt.class} transition-all ${
-                  data.color === opt.value 
-                    ? "ring-2 ring-offset-2 ring-primary" 
-                    : "hover:scale-110"
-                }`}
-                title={opt.label}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <Layout title="Управление категориями">

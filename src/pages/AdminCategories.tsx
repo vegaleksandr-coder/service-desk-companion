@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -50,11 +49,11 @@ import {
   Printer,
   HelpCircle,
   Palette,
-  Users
+  Users,
+  Loader2
 } from "lucide-react";
 import { CategoryMembersDialog } from "@/components/CategoryMembersDialog";
-import { mockCategories } from "@/data/mockData";
-import { Category } from "@/types/ticket";
+import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory, Category } from "@/hooks/useTickets";
 import { toast } from "sonner";
 
 const iconOptions = [
@@ -75,12 +74,12 @@ const colorOptions = [
   { value: "teal", label: "Бирюзовый", class: "bg-teal-500" },
 ];
 
-const getIconComponent = (iconName?: string) => {
+const getIconComponent = (iconName?: string | null) => {
   const found = iconOptions.find(i => i.value === iconName);
   return found ? found.icon : FolderOpen;
 };
 
-const getColorClass = (colorName?: string) => {
+const getColorClass = (colorName?: string | null) => {
   const found = colorOptions.find(c => c.value === colorName);
   return found ? found.class : "bg-primary";
 };
@@ -157,12 +156,16 @@ const CategoryForm = ({
 );
 
 export default function AdminCategories() {
-  const [categories, setCategories] = useState<Category[]>(mockCategories);
+  const { data: categories, isLoading } = useCategories();
+  const createCategory = useCreateCategory();
+  const updateCategory = useUpdateCategory();
+  const deleteCategory = useDeleteCategory();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [deleteCategory, setDeleteCategory] = useState<Category | null>(null);
+  const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
   const [membersCategory, setMembersCategory] = useState<Category | null>(null);
   const [newCategory, setNewCategory] = useState<Partial<Category>>({
     name: "",
@@ -171,49 +174,69 @@ export default function AdminCategories() {
     color: "blue",
   });
 
-  const filteredCategories = categories.filter((cat) =>
+  const filteredCategories = (categories || []).filter((cat) =>
     cat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     cat.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     if (!newCategory.name) {
       toast.error("Введите название категории");
       return;
     }
-    
-    const category: Category = {
-      id: `cat-${Date.now()}`,
-      name: newCategory.name,
-      description: newCategory.description,
-      icon: newCategory.icon,
-      color: newCategory.color,
-    };
-    
-    setCategories([...categories, category]);
-    setNewCategory({ name: "", description: "", icon: "folder", color: "blue" });
-    setIsAddDialogOpen(false);
-    toast.success("Категория добавлена");
+    try {
+      await createCategory.mutateAsync({
+        name: newCategory.name,
+        description: newCategory.description || null,
+        icon: newCategory.icon || null,
+        color: newCategory.color || null,
+      });
+      setNewCategory({ name: "", description: "", icon: "folder", color: "blue" });
+      setIsAddDialogOpen(false);
+      toast.success("Категория добавлена");
+    } catch {
+      toast.error("Ошибка при создании категории");
+    }
   };
 
-  const handleUpdateCategory = () => {
+  const handleUpdateCategory = async () => {
     if (!editingCategory) return;
-    
-    setCategories(categories.map(c => 
-      c.id === editingCategory.id ? editingCategory : c
-    ));
-    setIsEditDialogOpen(false);
-    setEditingCategory(null);
-    toast.success("Категория обновлена");
+    try {
+      await updateCategory.mutateAsync({
+        id: editingCategory.id,
+        name: editingCategory.name,
+        description: editingCategory.description,
+        icon: editingCategory.icon,
+        color: editingCategory.color,
+      });
+      setIsEditDialogOpen(false);
+      setEditingCategory(null);
+      toast.success("Категория обновлена");
+    } catch {
+      toast.error("Ошибка при обновлении категории");
+    }
   };
 
-  const handleDeleteCategory = () => {
-    if (!deleteCategory) return;
-    
-    setCategories(categories.filter(c => c.id !== deleteCategory.id));
-    setDeleteCategory(null);
-    toast.success("Категория удалена");
+  const handleDeleteCategory = async () => {
+    if (!deletingCategory) return;
+    try {
+      await deleteCategory.mutateAsync(deletingCategory.id);
+      setDeletingCategory(null);
+      toast.success("Категория удалена");
+    } catch {
+      toast.error("Ошибка при удалении категории");
+    }
   };
+
+  if (isLoading) {
+    return (
+      <Layout title="Управление категориями">
+        <div className="flex justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout title="Управление категориями">
@@ -222,14 +245,14 @@ export default function AdminCategories() {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="pt-6">
-              <div className="text-2xl font-bold">{categories.length}</div>
+              <div className="text-2xl font-bold">{(categories || []).length}</div>
               <p className="text-xs text-muted-foreground">Всего категорий</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
               <div className="text-2xl font-bold text-status-in-progress">
-                {categories.filter(c => c.icon === 'monitor').length}
+                {(categories || []).filter(c => c.icon === 'monitor').length}
               </div>
               <p className="text-xs text-muted-foreground">IT категорий</p>
             </CardContent>
@@ -301,7 +324,7 @@ export default function AdminCategories() {
                           <div className="flex items-center gap-2">
                             <div className={`w-4 h-4 rounded-full ${getColorClass(category.color)}`} />
                             <span className="text-sm text-muted-foreground capitalize">
-                              {colorOptions.find(c => c.value === category.color)?.label || category.color}
+                              {colorOptions.find(c => c.value === category.color)?.label || category.color || "—"}
                             </span>
                           </div>
                         </TableCell>
@@ -326,7 +349,7 @@ export default function AdminCategories() {
                               </DropdownMenuItem>
                               <DropdownMenuItem 
                                 className="text-destructive"
-                                onClick={() => setDeleteCategory(category)}
+                                onClick={() => setDeletingCategory(category)}
                               >
                                 <Trash2 className="h-4 w-4 mr-2" />
                                 Удалить
@@ -380,7 +403,7 @@ export default function AdminCategories() {
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               className="text-destructive"
-                              onClick={() => setDeleteCategory(category)}
+                              onClick={() => setDeletingCategory(category)}
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
                               Удалить
@@ -417,7 +440,8 @@ export default function AdminCategories() {
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
               Отмена
             </Button>
-            <Button onClick={handleAddCategory}>
+            <Button onClick={handleAddCategory} disabled={createCategory.isPending}>
+              {createCategory.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Создать
             </Button>
           </DialogFooter>
@@ -443,7 +467,8 @@ export default function AdminCategories() {
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
               Отмена
             </Button>
-            <Button onClick={handleUpdateCategory}>
+            <Button onClick={handleUpdateCategory} disabled={updateCategory.isPending}>
+              {updateCategory.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Сохранить
             </Button>
           </DialogFooter>
@@ -451,12 +476,12 @@ export default function AdminCategories() {
       </Dialog>
 
       {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteCategory} onOpenChange={() => setDeleteCategory(null)}>
+      <AlertDialog open={!!deletingCategory} onOpenChange={() => setDeletingCategory(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Удалить категорию?</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите удалить категорию "{deleteCategory?.name}"? 
+              Вы уверены, что хотите удалить категорию "{deletingCategory?.name}"? 
               Это действие нельзя отменить. Заявки с этой категорией останутся без изменений.
             </AlertDialogDescription>
           </AlertDialogHeader>

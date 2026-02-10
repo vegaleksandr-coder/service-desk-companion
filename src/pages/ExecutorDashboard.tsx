@@ -5,9 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Ticket, Category, TicketProfile } from "@/hooks/useTickets";
+import { useUpdateTicket } from "@/hooks/useTickets";
+import { toast } from "sonner";
 import {
   ClipboardList,
   Clock,
@@ -15,6 +17,7 @@ import {
   AlertCircle,
   Loader2,
   Inbox,
+  UserPlus,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -78,8 +81,22 @@ function useExecutorTickets() {
 
 export default function ExecutorDashboard() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user, profile } = useAuth();
   const { data: tickets, isLoading } = useExecutorTickets();
+  const updateTicket = useUpdateTicket();
+
+  const handleAssignToMe = async (e: React.MouseEvent, ticketId: string) => {
+    e.stopPropagation();
+    if (!user) return;
+    try {
+      await updateTicket.mutateAsync({ id: ticketId, assignee_id: user.id });
+      queryClient.invalidateQueries({ queryKey: ["executor-tickets"] });
+      toast.success("Заявка назначена на вас");
+    } catch {
+      toast.error("Ошибка при назначении заявки");
+    }
+  };
 
   const myTickets = tickets?.filter((t) => t.assignee_id === user?.id) || [];
   const unassigned = tickets?.filter((t) => !t.assignee_id) || [];
@@ -140,10 +157,46 @@ export default function ExecutorDashboard() {
             <TicketList tickets={myTickets} isLoading={isLoading} onClickTicket={(id) => navigate(`/tickets/${id}`)} emptyText="Нет назначенных вам заявок" />
           </TabsContent>
           <TabsContent value="unassigned">
-            <TicketList tickets={unassigned} isLoading={isLoading} onClickTicket={(id) => navigate(`/tickets/${id}`)} emptyText="Нет заявок без исполнителя" />
+            <TicketList
+              tickets={unassigned}
+              isLoading={isLoading}
+              onClickTicket={(id) => navigate(`/tickets/${id}`)}
+              emptyText="Нет заявок без исполнителя"
+              renderAction={(ticket) => (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  disabled={updateTicket.isPending}
+                  onClick={(e) => handleAssignToMe(e, ticket.id)}
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  Взять себе
+                </Button>
+              )}
+            />
           </TabsContent>
           <TabsContent value="all">
-            <TicketList tickets={allCategoryTickets} isLoading={isLoading} onClickTicket={(id) => navigate(`/tickets/${id}`)} emptyText="Нет заявок в ваших категориях" />
+            <TicketList
+              tickets={allCategoryTickets}
+              isLoading={isLoading}
+              onClickTicket={(id) => navigate(`/tickets/${id}`)}
+              emptyText="Нет заявок в ваших категориях"
+              renderAction={(ticket) =>
+                !ticket.assignee_id ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5"
+                    disabled={updateTicket.isPending}
+                    onClick={(e) => handleAssignToMe(e, ticket.id)}
+                  >
+                    <UserPlus className="h-3.5 w-3.5" />
+                    Взять себе
+                  </Button>
+                ) : null
+              }
+            />
           </TabsContent>
         </Tabs>
       </div>
@@ -156,11 +209,13 @@ function TicketList({
   isLoading,
   onClickTicket,
   emptyText,
+  renderAction,
 }: {
   tickets: Ticket[];
   isLoading: boolean;
   onClickTicket: (id: string) => void;
   emptyText: string;
+  renderAction?: (ticket: Ticket) => React.ReactNode;
 }) {
   if (isLoading) {
     return (
@@ -182,7 +237,14 @@ function TicketList({
   return (
     <div className="grid gap-3 md:grid-cols-2">
       {tickets.map((ticket) => (
-        <TicketCard key={ticket.id} ticket={ticket} onClick={() => onClickTicket(ticket.id)} />
+        <div key={ticket.id} className="relative">
+          <TicketCard ticket={ticket} onClick={() => onClickTicket(ticket.id)} />
+          {renderAction && (
+            <div className="absolute top-3 right-3 z-10">
+              {renderAction(ticket)}
+            </div>
+          )}
+        </div>
       ))}
     </div>
   );

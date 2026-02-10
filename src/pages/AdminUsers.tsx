@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Search, MoreHorizontal, Pencil, Shield, CheckCircle,
-  User as UserIcon, Loader2, Plus, FolderOpen, Trash2, KeyRound,
+  User as UserIcon, Loader2, Plus, FolderOpen, Trash2, KeyRound, Dices, Copy,
 } from "lucide-react";
 import { UserRole, roleLabels } from "@/types/ticket";
 import { useAdminUsers, useUpdateUserRole, useUpdateUserProfile, useCreateUser, useDeleteUser, useResetUserPassword, AdminUser } from "@/hooks/useAdminUsers";
@@ -559,12 +559,42 @@ export default function AdminUsers() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Новый пароль</label>
-              <Input
-                type="password"
-                placeholder="Минимум 6 символов"
-                value={resetNewPassword}
-                onChange={(e) => setResetNewPassword(e.target.value)}
-              />
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  placeholder="Минимум 6 символов"
+                  value={resetNewPassword}
+                  onChange={(e) => setResetNewPassword(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  title="Сгенерировать пароль"
+                  onClick={() => {
+                    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%&*";
+                    let pwd = "";
+                    for (let i = 0; i < 12; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
+                    setResetNewPassword(pwd);
+                  }}
+                >
+                  <Dices className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  title="Копировать"
+                  disabled={!resetNewPassword}
+                  onClick={() => {
+                    navigator.clipboard.writeText(resetNewPassword);
+                    toast.success("Пароль скопирован");
+                  }}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
           <DialogFooter>

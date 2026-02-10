@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useTicket, useUpdateTicket, useAddComment, Ticket } from "@/hooks/useTickets";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCategoryExecutors, useUserCategoryRole } from "@/hooks/useCategoryMembers";
 import { 
@@ -177,6 +178,19 @@ export default function TicketDetails() {
       await updateTicket.mutateAsync({ id: ticket.id, ...updates });
       toast.success("Изменения сохранены");
       setStatusComment("");
+
+      // Send email notification on status change (fire and forget)
+      if (updates.status && updates.status !== ticket.status) {
+        supabase.functions.invoke("notify-status-change", {
+          body: {
+            ticket_id: ticket.id,
+            old_status: ticket.status,
+            new_status: updates.status,
+          },
+        }).then(({ error }) => {
+          if (error) console.error("Notification error:", error);
+        });
+      }
     } catch (error) {
       toast.error("Ошибка при сохранении");
     }

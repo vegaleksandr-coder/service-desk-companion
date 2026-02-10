@@ -321,14 +321,14 @@ export default function TicketDetails() {
                 <div className="space-y-2">
                   <label className="text-sm text-muted-foreground">Исполнитель</label>
                   <Select 
-                    defaultValue={ticket.assignee_id || ""}
-                    onValueChange={(value) => setSelectedAssignee(value)}
+                    defaultValue={ticket.assignee_id || "__none__"}
+                    onValueChange={(value) => setSelectedAssignee(value === "__none__" ? "" : value)}
                   >
                     <SelectTrigger className="touch-target">
                       <SelectValue placeholder="Назначить исполнителя" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Не назначен</SelectItem>
+                      <SelectItem value="__none__">Не назначен</SelectItem>
                       {executors?.map((user) => (
                         <SelectItem key={user.user_id} value={user.user_id}>
                           {user.name}

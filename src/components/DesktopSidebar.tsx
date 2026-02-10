@@ -28,6 +28,7 @@ const mainNavItems = [
 const userNavItems = [
   { path: '/profile', icon: User, label: 'Мой профиль' },
   { path: '/dashboard', icon: BarChart3, label: 'Дашборд' },
+  { path: '/executor', icon: ClipboardList, label: 'Мои задачи', roles: ['executor', 'admin'] as string[] },
 ];
 
 const adminNavItems = [
@@ -136,7 +137,9 @@ export function DesktopSidebar() {
               Личное
             </span>
           )}
-          {userNavItems.map((item) => (
+          {userNavItems
+            .filter((item) => !('roles' in item) || (role && (item as any).roles?.includes(role)))
+            .map((item) => (
             <NavLink key={item.path} {...item} />
           ))}
         </div>

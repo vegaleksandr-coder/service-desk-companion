@@ -49,8 +49,10 @@ import {
   Mail,
   Printer,
   HelpCircle,
-  Palette
+  Palette,
+  Users
 } from "lucide-react";
+import { CategoryMembersDialog } from "@/components/CategoryMembersDialog";
 import { mockCategories } from "@/data/mockData";
 import { Category } from "@/types/ticket";
 import { toast } from "sonner";
@@ -161,6 +163,7 @@ export default function AdminCategories() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [deleteCategory, setDeleteCategory] = useState<Category | null>(null);
+  const [membersCategory, setMembersCategory] = useState<Category | null>(null);
   const [newCategory, setNewCategory] = useState<Partial<Category>>({
     name: "",
     description: "",
@@ -317,6 +320,10 @@ export default function AdminCategories() {
                                 <Pencil className="h-4 w-4 mr-2" />
                                 Редактировать
                               </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setMembersCategory(category)}>
+                                <Users className="h-4 w-4 mr-2" />
+                                Участники
+                              </DropdownMenuItem>
                               <DropdownMenuItem 
                                 className="text-destructive"
                                 onClick={() => setDeleteCategory(category)}
@@ -366,6 +373,10 @@ export default function AdminCategories() {
                             }}>
                               <Pencil className="h-4 w-4 mr-2" />
                               Редактировать
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setMembersCategory(category)}>
+                              <Users className="h-4 w-4 mr-2" />
+                              Участники
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               className="text-destructive"
@@ -460,6 +471,14 @@ export default function AdminCategories() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Category Members Dialog */}
+      <CategoryMembersDialog
+        categoryId={membersCategory?.id || null}
+        categoryName={membersCategory?.name || ""}
+        open={!!membersCategory}
+        onOpenChange={(open) => !open && setMembersCategory(null)}
+      />
     </Layout>
   );
 }

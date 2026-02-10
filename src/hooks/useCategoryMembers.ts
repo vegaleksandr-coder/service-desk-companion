@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -10,10 +10,16 @@ export interface CategoryMember {
   created_at: string;
 }
 
+export interface CategoryMemberWithProfile extends CategoryMember {
+  name: string;
+  email: string;
+  avatar_url: string | null;
+}
+
 export function useCategoryMembers(categoryId: string | null | undefined) {
   return useQuery({
     queryKey: ["category-members", categoryId],
-    queryFn: async () => {
+    queryFn: async (): Promise<CategoryMemberWithProfile[]> => {
       if (!categoryId) return [];
       const { data, error } = await supabase
         .from("category_members")
@@ -21,9 +27,82 @@ export function useCategoryMembers(categoryId: string | null | undefined) {
         .eq("category_id", categoryId);
 
       if (error) throw error;
-      return data as CategoryMember[];
+      if (!data || data.length === 0) return [];
+
+      const userIds = data.map((m) => m.user_id);
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, name, email, avatar_url")
+        .in("user_id", userIds);
+
+      const profileMap = new Map(
+        (profiles || []).map((p) => [p.user_id, p])
+      );
+
+      return data.map((m) => {
+        const profile = profileMap.get(m.user_id);
+        return {
+          ...m,
+          role: m.role as "admin" | "executor",
+          name: profile?.name || "Неизвестный",
+          email: profile?.email || "",
+          avatar_url: profile?.avatar_url || null,
+        };
+      });
     },
     enabled: !!categoryId,
+  });
+}
+
+export function useAddCategoryMember() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      categoryId,
+      userId,
+      role,
+    }: {
+      categoryId: string;
+      userId: string;
+      role: "admin" | "executor";
+    }) => {
+      const { data, error } = await supabase
+        .from("category_members")
+        .insert({
+          category_id: categoryId,
+          user_id: userId,
+          role,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["category-members", variables.categoryId] });
+      queryClient.invalidateQueries({ queryKey: ["category-executors", variables.categoryId] });
+    },
+  });
+}
+
+export function useRemoveCategoryMember() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, categoryId }: { id: string; categoryId: string }) => {
+      const { error } = await supabase
+        .from("category_members")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["category-members", variables.categoryId] });
+      queryClient.invalidateQueries({ queryKey: ["category-executors", variables.categoryId] });
+    },
   });
 }
 
@@ -33,7 +112,6 @@ export function useCategoryExecutors(categoryId: string | null | undefined) {
     queryFn: async () => {
       if (!categoryId) return [];
 
-      // Get members with executor or admin role in this category
       const { data: members, error } = await supabase
         .from("category_members")
         .select("*")
@@ -75,7 +153,6 @@ export function useUserCategoryRole(categoryId: string | null | undefined) {
       if (error) throw error;
       if (!data || data.length === 0) return null;
 
-      // Return highest role (admin > executor)
       const roles = data.map((d) => d.role);
       if (roles.includes("admin")) return "admin" as const;
       return "executor" as const;

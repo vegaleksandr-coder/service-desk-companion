@@ -5,49 +5,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { 
-  Search, 
-  MoreHorizontal, 
-  Pencil, 
-  Shield, 
-  CheckCircle,
-  User as UserIcon,
-  Loader2,
+import {
+  Search, MoreHorizontal, Pencil, Shield, CheckCircle,
+  User as UserIcon, Loader2, Plus, FolderOpen,
 } from "lucide-react";
 import { UserRole, roleLabels } from "@/types/ticket";
-import { useAdminUsers, useUpdateUserRole, AdminUser } from "@/hooks/useAdminUsers";
+import { useAdminUsers, useUpdateUserRole, useCreateUser, AdminUser } from "@/hooks/useAdminUsers";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { CategoryMembersForUserDialog } from "@/components/CategoryMembersForUserDialog";
 
 const roleColors: Record<UserRole, string> = {
   admin: "bg-priority-critical/10 text-priority-critical border-priority-critical/20",
@@ -65,11 +44,18 @@ export default function AdminUsers() {
   const { user: currentUser } = useAuth();
   const { data: users, isLoading } = useAdminUsers();
   const updateRole = useUpdateUserRole();
+  const createUser = useCreateUser();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [roleDialogUser, setRoleDialogUser] = useState<AdminUser | null>(null);
   const [selectedRole, setSelectedRole] = useState<UserRole>("user");
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newRole, setNewRole] = useState<UserRole>("user");
+  const [categoriesUser, setCategoriesUser] = useState<AdminUser | null>(null);
 
   const filteredUsers = (users || []).filter((user) => {
     const matchesSearch =
@@ -86,12 +72,8 @@ export default function AdminUsers() {
 
   const handleSaveRole = async () => {
     if (!roleDialogUser) return;
-
     try {
-      await updateRole.mutateAsync({
-        userId: roleDialogUser.user_id,
-        newRole: selectedRole,
-      });
+      await updateRole.mutateAsync({ userId: roleDialogUser.user_id, newRole: selectedRole });
       toast.success(`Роль пользователя ${roleDialogUser.name} обновлена на "${roleLabels[selectedRole]}"`);
       setRoleDialogUser(null);
     } catch {
@@ -105,12 +87,33 @@ export default function AdminUsers() {
       toast.error("Нельзя изменить свою собственную роль");
       return;
     }
-
     try {
       await updateRole.mutateAsync({ userId: user.user_id, newRole });
       toast.success(`Роль пользователя ${user.name} обновлена на "${roleLabels[newRole]}"`);
     } catch {
       toast.error("Не удалось обновить роль");
+    }
+  };
+
+  const handleCreateUser = async () => {
+    if (!newEmail || !newName || !newPassword) {
+      toast.error("Заполните все обязательные поля");
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error("Пароль должен быть не менее 6 символов");
+      return;
+    }
+    try {
+      await createUser.mutateAsync({ email: newEmail, password: newPassword, name: newName, role: newRole });
+      toast.success(`Пользователь ${newName} создан`);
+      setIsAddDialogOpen(false);
+      setNewEmail("");
+      setNewName("");
+      setNewPassword("");
+      setNewRole("user");
+    } catch (error: any) {
+      toast.error(error.message || "Ошибка при создании пользователя");
     }
   };
 
@@ -127,6 +130,37 @@ export default function AdminUsers() {
       </Layout>
     );
   }
+
+  const UserDropdownItems = ({ user }: { user: AdminUser }) => (
+    <>
+      <DropdownMenuItem onClick={() => handleOpenRoleDialog(user)}>
+        <Pencil className="h-4 w-4 mr-2" />
+        Изменить роль
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => setCategoriesUser(user)}>
+        <FolderOpen className="h-4 w-4 mr-2" />
+        Категории
+      </DropdownMenuItem>
+      {user.role !== "admin" && (
+        <DropdownMenuItem onClick={() => handleQuickRoleChange(user, "admin")}>
+          <Shield className="h-4 w-4 mr-2" />
+          Сделать админом
+        </DropdownMenuItem>
+      )}
+      {user.role !== "executor" && (
+        <DropdownMenuItem onClick={() => handleQuickRoleChange(user, "executor")}>
+          <CheckCircle className="h-4 w-4 mr-2" />
+          Сделать исполнителем
+        </DropdownMenuItem>
+      )}
+      {user.role !== "user" && (
+        <DropdownMenuItem onClick={() => handleQuickRoleChange(user, "user")}>
+          <UserIcon className="h-4 w-4 mr-2" />
+          Сделать пользователем
+        </DropdownMenuItem>
+      )}
+    </>
+  );
 
   return (
     <Layout title="Управление пользователями">
@@ -159,10 +193,16 @@ export default function AdminUsers() {
           </Card>
         </div>
 
-        {/* Filters */}
+        {/* Users Table */}
         <Card>
           <CardHeader className="pb-4">
-            <CardTitle>Пользователи</CardTitle>
+            <div className="flex flex-col sm:flex-row gap-4 justify-between">
+              <CardTitle>Пользователи</CardTitle>
+              <Button onClick={() => setIsAddDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Добавить пользователя
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -218,9 +258,7 @@ export default function AdminUsers() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {user.email}
-                      </TableCell>
+                      <TableCell className="text-muted-foreground">{user.email}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={roleColors[user.role]}>
                           {roleLabels[user.role]}
@@ -237,28 +275,7 @@ export default function AdminUsers() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleOpenRoleDialog(user)}>
-                              <Pencil className="h-4 w-4 mr-2" />
-                              Изменить роль
-                            </DropdownMenuItem>
-                            {user.role !== "admin" && (
-                              <DropdownMenuItem onClick={() => handleQuickRoleChange(user, "admin")}>
-                                <Shield className="h-4 w-4 mr-2" />
-                                Сделать админом
-                              </DropdownMenuItem>
-                            )}
-                            {user.role !== "executor" && (
-                              <DropdownMenuItem onClick={() => handleQuickRoleChange(user, "executor")}>
-                                <CheckCircle className="h-4 w-4 mr-2" />
-                                Сделать исполнителем
-                              </DropdownMenuItem>
-                            )}
-                            {user.role !== "user" && (
-                              <DropdownMenuItem onClick={() => handleQuickRoleChange(user, "user")}>
-                                <UserIcon className="h-4 w-4 mr-2" />
-                                Сделать пользователем
-                              </DropdownMenuItem>
-                            )}
+                            <UserDropdownItems user={user} />
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -297,28 +314,7 @@ export default function AdminUsers() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleOpenRoleDialog(user)}>
-                            <Pencil className="h-4 w-4 mr-2" />
-                            Изменить роль
-                          </DropdownMenuItem>
-                          {user.role !== "admin" && (
-                            <DropdownMenuItem onClick={() => handleQuickRoleChange(user, "admin")}>
-                              <Shield className="h-4 w-4 mr-2" />
-                              Сделать админом
-                            </DropdownMenuItem>
-                          )}
-                          {user.role !== "executor" && (
-                            <DropdownMenuItem onClick={() => handleQuickRoleChange(user, "executor")}>
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              Сделать исполнителем
-                            </DropdownMenuItem>
-                          )}
-                          {user.role !== "user" && (
-                            <DropdownMenuItem onClick={() => handleQuickRoleChange(user, "user")}>
-                              <UserIcon className="h-4 w-4 mr-2" />
-                              Сделать пользователем
-                            </DropdownMenuItem>
-                          )}
+                          <UserDropdownItems user={user} />
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -344,6 +340,64 @@ export default function AdminUsers() {
         </Card>
       </div>
 
+      {/* Add User Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Добавить пользователя</DialogTitle>
+            <DialogDescription>Создайте новую учётную запись</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Имя *</label>
+              <Input
+                placeholder="Иванов Иван"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Email *</label>
+              <Input
+                type="email"
+                placeholder="user@example.com"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Пароль *</label>
+              <Input
+                type="password"
+                placeholder="Минимум 6 символов"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Роль</label>
+              <Select value={newRole} onValueChange={(v) => setNewRole(v as UserRole)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">Пользователь</SelectItem>
+                  <SelectItem value="executor">Исполнитель</SelectItem>
+                  <SelectItem value="admin">Администратор</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Отмена</Button>
+            <Button onClick={handleCreateUser} disabled={createUser.isPending}>
+              {createUser.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Создать
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Change Role Dialog */}
       <Dialog open={!!roleDialogUser} onOpenChange={(open) => !open && setRoleDialogUser(null)}>
         <DialogContent>
@@ -363,9 +417,7 @@ export default function AdminUsers() {
                   key={role}
                   onClick={() => setSelectedRole(role)}
                   className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                    isSelected
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/50"
+                    isSelected ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
                   }`}
                 >
                   <Icon className={`h-5 w-5 ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
@@ -384,21 +436,25 @@ export default function AdminUsers() {
             })}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRoleDialogUser(null)}>
-              Отмена
-            </Button>
+            <Button variant="outline" onClick={() => setRoleDialogUser(null)}>Отмена</Button>
             <Button
               onClick={handleSaveRole}
               disabled={updateRole.isPending || selectedRole === roleDialogUser?.role}
             >
-              {updateRole.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : null}
+              {updateRole.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Сохранить
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* User Categories Dialog */}
+      <CategoryMembersForUserDialog
+        userId={categoriesUser?.user_id || null}
+        userName={categoriesUser?.name || ""}
+        open={!!categoriesUser}
+        onOpenChange={(open) => !open && setCategoriesUser(null)}
+      />
     </Layout>
   );
 }

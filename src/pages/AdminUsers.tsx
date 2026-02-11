@@ -22,10 +22,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Search, MoreHorizontal, Pencil, Shield, CheckCircle,
-  User as UserIcon, Loader2, Plus, FolderOpen, Trash2, KeyRound, Dices, Copy,
+  User as UserIcon, Loader2, Plus, FolderOpen, Trash2, KeyRound, Dices, Copy, UserCog,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { UserRole, roleLabels } from "@/types/ticket";
-import { useAdminUsers, useUpdateUserRole, useUpdateUserProfile, useCreateUser, useDeleteUser, useResetUserPassword, AdminUser } from "@/hooks/useAdminUsers";
+import { useAdminUsers, useUpdateUserRole, useUpdateUserProfile, useCreateUser, useDeleteUser, useResetUserPassword, useToggleManageUsers, AdminUser } from "@/hooks/useAdminUsers";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { toast } from "sonner";
@@ -45,13 +46,14 @@ const roleIcons: Record<UserRole, typeof Shield> = {
 };
 
 export default function AdminUsers() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, role } = useAuth();
   const { data: users, isLoading } = useAdminUsers();
   const updateRole = useUpdateUserRole();
   const updateProfile = useUpdateUserProfile();
   const createUser = useCreateUser();
   const deleteUser = useDeleteUser();
   const resetPassword = useResetUserPassword();
+  const toggleManageUsers = useToggleManageUsers();
   const [deleteDialogUser, setDeleteDialogUser] = useState<AdminUser | null>(null);
   const [passwordDialogUser, setPasswordDialogUser] = useState<AdminUser | null>(null);
   const [resetNewPassword, setResetNewPassword] = useState("");
@@ -172,25 +174,48 @@ export default function AdminUsers() {
     }
   };
 
+  const isAdmin = role === 'admin';
+
   const UserDropdownItems = ({ user }: { user: AdminUser }) => (
     <>
-      <DropdownMenuItem onClick={() => handleOpenEditDialog(user)}>
-        <Pencil className="h-4 w-4 mr-2" />
-        Редактировать
-      </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => handleOpenRoleDialog(user)}>
-        <Shield className="h-4 w-4 mr-2" />
-        Изменить роль
-      </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => setCategoriesUser(user)}>
-        <FolderOpen className="h-4 w-4 mr-2" />
-        Категории
-      </DropdownMenuItem>
+      {isAdmin && (
+        <DropdownMenuItem onClick={() => handleOpenEditDialog(user)}>
+          <Pencil className="h-4 w-4 mr-2" />
+          Редактировать
+        </DropdownMenuItem>
+      )}
+      {isAdmin && (
+        <DropdownMenuItem onClick={() => handleOpenRoleDialog(user)}>
+          <Shield className="h-4 w-4 mr-2" />
+          Изменить роль
+        </DropdownMenuItem>
+      )}
+      {isAdmin && (
+        <DropdownMenuItem onClick={() => setCategoriesUser(user)}>
+          <FolderOpen className="h-4 w-4 mr-2" />
+          Категории
+        </DropdownMenuItem>
+      )}
+      {isAdmin && user.user_id !== currentUser?.id && (
+        <DropdownMenuItem
+          onClick={async () => {
+            try {
+              await toggleManageUsers.mutateAsync({ userId: user.user_id, canManageUsers: !user.can_manage_users });
+              toast.success(user.can_manage_users ? "Право управления пользователями снято" : "Право управления пользователями выдано");
+            } catch {
+              toast.error("Ошибка при изменении прав");
+            }
+          }}
+        >
+          <UserCog className="h-4 w-4 mr-2" />
+          {user.can_manage_users ? "Снять право создания" : "Разрешить создание пользователей"}
+        </DropdownMenuItem>
+      )}
       <DropdownMenuItem onClick={() => { setPasswordDialogUser(user); setResetNewPassword(""); }}>
         <KeyRound className="h-4 w-4 mr-2" />
         Сбросить пароль
       </DropdownMenuItem>
-      {user.user_id !== currentUser?.id && (
+      {isAdmin && user.user_id !== currentUser?.id && (
         <DropdownMenuItem
           onClick={() => setDeleteDialogUser(user)}
           className="text-destructive focus:text-destructive"
@@ -423,7 +448,7 @@ export default function AdminUsers() {
                 <SelectContent>
                   <SelectItem value="user">Пользователь</SelectItem>
                   <SelectItem value="executor">Исполнитель</SelectItem>
-                  <SelectItem value="admin">Администратор</SelectItem>
+                  {isAdmin && <SelectItem value="admin">Администратор</SelectItem>}
                 </SelectContent>
               </Select>
             </div>

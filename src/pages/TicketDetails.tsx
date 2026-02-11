@@ -138,6 +138,15 @@ export default function TicketDetails() {
       });
       toast.success("Комментарий добавлен");
       setNewComment("");
+
+      // Send notification for new comment (fire and forget)
+      supabase.functions.invoke("notify-status-change", {
+        body: {
+          ticket_id: ticket.id,
+          event_type: "new_comment",
+          comment_author_name: user?.user_metadata?.name || user?.email || "Пользователь",
+        },
+      }).catch((err) => console.error("Comment notification error:", err));
     } catch (error) {
       toast.error("Ошибка при добавлении комментария");
     }
@@ -179,17 +188,28 @@ export default function TicketDetails() {
       toast.success("Изменения сохранены");
       setStatusComment("");
 
-      // Send email notification on status change (fire and forget)
+      // Send notifications (fire and forget)
       if (updates.status && updates.status !== ticket.status) {
         supabase.functions.invoke("notify-status-change", {
           body: {
             ticket_id: ticket.id,
             old_status: ticket.status,
             new_status: updates.status,
+            event_type: "status_change",
           },
-        }).then(({ error }) => {
-          if (error) console.error("Notification error:", error);
-        });
+        }).catch((err) => console.error("Status notification error:", err));
+      }
+
+      // Notify on assignee change
+      if (updates.assignee_id && updates.assignee_id !== ticket.assignee_id) {
+        const assignee = categoryExecutors?.find(e => e.user_id === updates.assignee_id);
+        supabase.functions.invoke("notify-status-change", {
+          body: {
+            ticket_id: ticket.id,
+            event_type: "assignee_change",
+            assignee_name: assignee?.name || "Исполнитель",
+          },
+        }).catch((err) => console.error("Assignee notification error:", err));
       }
     } catch (error) {
       toast.error("Ошибка при сохранении");

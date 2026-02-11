@@ -2,6 +2,7 @@ import { Layout } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { 
   Search, 
   BookOpen, 
@@ -29,11 +30,28 @@ import {
   Utensils,
   UserCog,
   Users,
-  User
+  User,
+  Plus,
+  Pencil,
+  Trash2,
+  MessageCircleQuestion,
 } from "lucide-react";
 import { useState } from "react";
 import { useCategories } from "@/hooks/useTickets";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFaqs, useDeleteFaq, type FAQ } from "@/hooks/useFaqs";
+import { FaqManageDialog } from "@/components/FaqManageDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   monitor: Monitor,
@@ -75,8 +93,6 @@ const colorMap: Record<string, string> = {
 
 const getIcon = (iconName?: string | null) => iconMap[iconName || ""] || FolderOpen;
 const getColor = (colorName?: string | null) => colorMap[colorName || ""] || "bg-primary";
-
-// --- User Guide Content ---
 
 interface GuideSection {
   title: string;
@@ -165,11 +181,7 @@ const adminGuide: GuideSection[] = [
   },
 ];
 
-interface GuideSectionCardProps {
-  section: GuideSection;
-}
-
-function GuideSectionCard({ section }: GuideSectionCardProps) {
+function GuideSectionCard({ section }: { section: GuideSection }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="border-b border-border last:border-b-0">
@@ -193,10 +205,64 @@ function GuideSectionCard({ section }: GuideSectionCardProps) {
   );
 }
 
+function FaqItem({
+  faq,
+  isAdmin,
+  onEdit,
+  onDelete,
+}: {
+  faq: FAQ;
+  isAdmin: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="border-b border-border last:border-b-0">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center justify-between w-full p-4 hover:bg-muted/50 transition-colors text-left"
+      >
+        <h3 className="font-medium text-sm flex-1 pr-2">{faq.question}</h3>
+        <ChevronDown
+          className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <div className="px-4 pb-4">
+          <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+            {faq.answer}
+          </p>
+          {isAdmin && (
+            <div className="flex gap-2 mt-3">
+              <Button size="sm" variant="outline" onClick={onEdit}>
+                <Pencil className="h-3 w-3 mr-1" />
+                Редактировать
+              </Button>
+              <Button size="sm" variant="destructive" onClick={onDelete}>
+                <Trash2 className="h-3 w-3 mr-1" />
+                Удалить
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Knowledge() {
   const [searchQuery, setSearchQuery] = useState("");
   const { data: categories = [], isLoading } = useCategories();
   const { role } = useAuth();
+  const { data: faqs = [] } = useFaqs();
+  const deleteFaq = useDeleteFaq();
+  const [faqDialogOpen, setFaqDialogOpen] = useState(false);
+  const [editingFaq, setEditingFaq] = useState<FAQ | null>(null);
+  const [deletingFaqId, setDeletingFaqId] = useState<string | null>(null);
+
+  const isAdmin = role === "admin";
 
   const guideBlocks = [
     { title: "Общая инструкция", icon: BookOpen, sections: generalGuide, roles: ["user", "executor", "admin"] },
@@ -206,13 +272,44 @@ export default function Knowledge() {
 
   const visibleGuides = guideBlocks.filter(g => role && g.roles.includes(role));
 
-  // Filter guide sections by search
   const filterSections = (sections: GuideSection[]) => {
     if (!searchQuery.trim()) return sections;
     const q = searchQuery.toLowerCase();
     return sections.filter(
       s => s.title.toLowerCase().includes(q) || s.content.some(c => c.toLowerCase().includes(q))
     );
+  };
+
+  const filteredFaqs = searchQuery.trim()
+    ? faqs.filter(
+        (f) =>
+          f.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          f.answer.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : faqs;
+
+  // Group FAQs by category
+  const faqsByCategory = new Map<string | null, FAQ[]>();
+  filteredFaqs.forEach((faq) => {
+    const key = faq.category_id;
+    if (!faqsByCategory.has(key)) faqsByCategory.set(key, []);
+    faqsByCategory.get(key)!.push(faq);
+  });
+
+  const getCategoryName = (id: string | null) => {
+    if (!id) return "Общие вопросы";
+    return categories.find((c) => c.id === id)?.name || "Без категории";
+  };
+
+  const handleDeleteFaq = async () => {
+    if (!deletingFaqId) return;
+    try {
+      await deleteFaq.mutateAsync(deletingFaqId);
+      toast.success("Вопрос удалён");
+    } catch {
+      toast.error("Ошибка при удалении");
+    }
+    setDeletingFaqId(null);
   };
 
   return (
@@ -235,7 +332,7 @@ export default function Knowledge() {
           <div className="max-w-md mx-auto relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Поиск по инструкциям..."
+              placeholder="Поиск по инструкциям и FAQ..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 touch-target"
@@ -273,6 +370,62 @@ export default function Knowledge() {
           )}
         </div>
 
+        {/* FAQ Section */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <MessageCircleQuestion className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold">Часто задаваемые вопросы</h2>
+            </div>
+            {isAdmin && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  setEditingFaq(null);
+                  setFaqDialogOpen(true);
+                }}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Добавить
+              </Button>
+            )}
+          </div>
+
+          {filteredFaqs.length === 0 ? (
+            <Card>
+              <CardContent className="p-6 text-center text-sm text-muted-foreground">
+                {searchQuery ? "Ничего не найдено" : "Вопросы ещё не добавлены"}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {Array.from(faqsByCategory.entries()).map(([catId, catFaqs]) => (
+                <div key={catId || "general"}>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                    {getCategoryName(catId)}
+                  </h3>
+                  <Card>
+                    <CardContent className="p-0">
+                      {catFaqs.map((faq) => (
+                        <FaqItem
+                          key={faq.id}
+                          faq={faq}
+                          isAdmin={isAdmin}
+                          onEdit={() => {
+                            setEditingFaq(faq);
+                            setFaqDialogOpen(true);
+                          }}
+                          onDelete={() => setDeletingFaqId(faq.id)}
+                        />
+                      ))}
+                    </CardContent>
+                  </Card>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* User Guides */}
         {visibleGuides.map((guide) => {
           const Icon = guide.icon;
@@ -298,6 +451,29 @@ export default function Knowledge() {
           );
         })}
       </div>
+
+      {/* FAQ Dialog */}
+      <FaqManageDialog
+        open={faqDialogOpen}
+        onOpenChange={setFaqDialogOpen}
+        faq={editingFaq}
+      />
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deletingFaqId} onOpenChange={(open) => !open && setDeletingFaqId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить вопрос?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Это действие нельзя отменить.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteFaq}>Удалить</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }

@@ -1,0 +1,99 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+
+export interface FAQ {
+  id: string;
+  question: string;
+  answer: string;
+  category_id: string | null;
+  sort_order: number;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function useFaqs() {
+  return useQuery({
+    queryKey: ["faqs"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("faqs")
+        .select("*")
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      return data as FAQ[];
+    },
+  });
+}
+
+export function useCreateFaq() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      question: string;
+      answer: string;
+      category_id?: string | null;
+      sort_order?: number;
+      created_by: string;
+    }) => {
+      const { data: faq, error } = await supabase
+        .from("faqs")
+        .insert(data)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return faq;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["faqs"] });
+    },
+  });
+}
+
+export function useUpdateFaq() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      ...data
+    }: {
+      id: string;
+      question?: string;
+      answer?: string;
+      category_id?: string | null;
+      sort_order?: number;
+    }) => {
+      const { data: faq, error } = await supabase
+        .from("faqs")
+        .update(data)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return faq;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["faqs"] });
+    },
+  });
+}
+
+export function useDeleteFaq() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("faqs").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["faqs"] });
+    },
+  });
+}

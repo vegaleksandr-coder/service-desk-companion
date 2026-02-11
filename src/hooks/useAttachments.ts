@@ -112,10 +112,14 @@ export function useDeleteAttachment() {
   });
 }
 
-export function getAttachmentUrl(filePath: string): string {
-  const { data } = supabase.storage
+export async function getAttachmentSignedUrl(filePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
     .from("ticket-attachments")
-    .getPublicUrl(filePath);
-  
-  return data.publicUrl;
+    .createSignedUrl(filePath, 3600); // 1 hour expiry
+
+  if (error || !data?.signedUrl) {
+    console.error("Failed to get signed URL:", error);
+    return "";
+  }
+  return data.signedUrl;
 }

@@ -81,6 +81,20 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (password.length < 8) {
+      return new Response(JSON.stringify({ error: "Пароль должен содержать минимум 8 символов" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+      return new Response(JSON.stringify({ error: "Пароль должен содержать заглавные, строчные буквы и цифры" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Create user with admin API
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
@@ -109,7 +123,11 @@ Deno.serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error("create-user error:", error);
+    const msg = error?.message?.includes("already registered")
+      ? "Пользователь с таким email уже существует"
+      : "Произошла ошибка. Попробуйте позже.";
+    return new Response(JSON.stringify({ error: msg }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

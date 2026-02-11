@@ -69,8 +69,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (newPassword.length < 6) {
-      return new Response(JSON.stringify({ error: "Password must be at least 6 characters" }), {
+    if (newPassword.length < 8) {
+      return new Response(JSON.stringify({ error: "Пароль должен содержать минимум 8 символов" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      return new Response(JSON.stringify({ error: "Пароль должен содержать заглавные, строчные буквы и цифры" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -92,7 +99,8 @@ Deno.serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error("reset-user-password error:", error);
+    return new Response(JSON.stringify({ error: "Произошла ошибка. Попробуйте позже." }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

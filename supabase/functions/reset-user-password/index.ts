@@ -41,8 +41,20 @@ Deno.serve(async (req) => {
       .eq("user_id", caller.id)
       .single();
 
-    if (!roleData || roleData.role !== "admin") {
-      return new Response(JSON.stringify({ error: "Forbidden: admin only" }), {
+    const isAdmin = roleData?.role === "admin";
+
+    let canManageUsers = false;
+    if (!isAdmin) {
+      const { data: profileData } = await adminClient
+        .from("profiles")
+        .select("can_manage_users")
+        .eq("user_id", caller.id)
+        .single();
+      canManageUsers = profileData?.can_manage_users === true;
+    }
+
+    if (!isAdmin && !canManageUsers) {
+      return new Response(JSON.stringify({ error: "Forbidden: insufficient permissions" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

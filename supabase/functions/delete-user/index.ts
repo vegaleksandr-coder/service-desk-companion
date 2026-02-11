@@ -84,7 +84,8 @@ Deno.serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error("delete-user error:", error);
+    return new Response(JSON.stringify({ error: "Произошла ошибка. Попробуйте позже." }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -15,7 +15,7 @@ import {
   useAttachments,
   useUploadAttachment,
   useDeleteAttachment,
-  getAttachmentUrl,
+  getAttachmentSignedUrl,
 } from "@/hooks/useAttachments";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -56,6 +56,34 @@ function getFileIcon(mimeType: string) {
   return <FileIcon className="h-4 w-4" />;
 }
 
+// Cache signed URLs to avoid refetching on every render
+const urlCache = new Map<string, { url: string; expiry: number }>();
+
+async function getCachedSignedUrl(filePath: string): Promise<string> {
+  const cached = urlCache.get(filePath);
+  if (cached && cached.expiry > Date.now()) return cached.url;
+  const url = await getAttachmentSignedUrl(filePath);
+  // Cache for 50 minutes (URL valid for 60)
+  urlCache.set(filePath, { url, expiry: Date.now() + 50 * 60 * 1000 });
+  return url;
+}
+
+function AttachmentThumbnail({ filePath, fileName }: { filePath: string; fileName: string }) {
+  const [url, setUrl] = useState<string>("");
+  useEffect(() => {
+    getCachedSignedUrl(filePath).then(setUrl);
+  }, [filePath]);
+  if (!url) return <div className="w-full h-32 rounded-md bg-muted animate-pulse" />;
+  return (
+    <img
+      src={url}
+      alt={fileName}
+      className="w-full h-full object-cover"
+      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+    />
+  );
+}
+
 export function TicketAttachments({ ticketId, canUpload }: TicketAttachmentsProps) {
   const { user, role } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -71,45 +99,35 @@ export function TicketAttachments({ ticketId, canUpload }: TicketAttachmentsProp
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-
     const file = files[0];
-    
     if (file.size > MAX_FILE_SIZE) {
       toast.error("Файл слишком большой. Максимальный размер: 10 МБ");
       return;
     }
-
     try {
       await uploadAttachment.mutateAsync({ ticketId, file });
       toast.success("Файл загружен");
-    } catch (error) {
+    } catch {
       toast.error("Ошибка при загрузке файла");
     }
-
-    // Reset input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    
     try {
-      await deleteAttachment.mutateAsync({
-        id: deleteId.id,
-        ticketId,
-        filePath: deleteId.filePath,
-      });
+      await deleteAttachment.mutateAsync({ id: deleteId.id, ticketId, filePath: deleteId.filePath });
+      urlCache.delete(deleteId.filePath);
       toast.success("Файл удален");
-    } catch (error) {
+    } catch {
       toast.error("Ошибка при удалении файла");
     }
     setDeleteId(null);
   };
 
-  const handleDownload = (filePath: string, fileName: string) => {
-    const url = getAttachmentUrl(filePath);
+  const handleDownload = async (filePath: string, fileName: string) => {
+    const url = await getCachedSignedUrl(filePath);
+    if (!url) return;
     const link = document.createElement("a");
     link.href = url;
     link.download = fileName;
@@ -119,12 +137,13 @@ export function TicketAttachments({ ticketId, canUpload }: TicketAttachmentsProp
     document.body.removeChild(link);
   };
 
-  const handlePreview = (filePath: string, mimeType: string) => {
+  const handlePreview = async (filePath: string, mimeType: string) => {
+    const url = await getCachedSignedUrl(filePath);
+    if (!url) return;
     if (mimeType.startsWith("image/")) {
-      setPreviewUrl(getAttachmentUrl(filePath));
+      setPreviewUrl(url);
     } else {
-      // For non-images, open in new tab
-      window.open(getAttachmentUrl(filePath), "_blank");
+      window.open(url, "_blank");
     }
   };
 
@@ -139,24 +158,9 @@ export function TicketAttachments({ ticketId, canUpload }: TicketAttachmentsProp
             </CardTitle>
             {(canUpload || isStaff) && (
               <>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  onChange={handleFileSelect}
-                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadAttachment.isPending}
-                >
-                  {uploadAttachment.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Upload className="h-4 w-4" />
-                  )}
+                <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" />
+                <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploadAttachment.isPending}>
+                  {uploadAttachment.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                   <span className="ml-2 hidden sm:inline">Загрузить</span>
                 </Button>
               </>
@@ -165,75 +169,33 @@ export function TicketAttachments({ ticketId, canUpload }: TicketAttachmentsProp
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex justify-center py-4">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
+            <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
           ) : attachments && attachments.length > 0 ? (
             <div className="space-y-2">
               {attachments.map((attachment) => (
-                <div
-                  key={attachment.id}
-                  className="group flex flex-col gap-2 p-3 rounded-md border bg-muted/50 hover:bg-muted transition-colors"
-                >
-                  {/* Thumbnail for images */}
+                <div key={attachment.id} className="group flex flex-col gap-2 p-3 rounded-md border bg-muted/50 hover:bg-muted transition-colors">
                   {attachment.mime_type.startsWith("image/") && (
-                    <button
-                      className="relative w-full h-32 rounded-md overflow-hidden bg-background cursor-pointer hover:opacity-90 transition-opacity"
-                      onClick={() => handlePreview(attachment.file_path, attachment.mime_type)}
-                    >
-                      <img
-                        src={getAttachmentUrl(attachment.file_path)}
-                        alt={attachment.file_name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = "none";
-                        }}
-                      />
+                    <button className="relative w-full h-32 rounded-md overflow-hidden bg-background cursor-pointer hover:opacity-90 transition-opacity" onClick={() => handlePreview(attachment.file_path, attachment.mime_type)}>
+                      <AttachmentThumbnail filePath={attachment.file_path} fileName={attachment.file_name} />
                     </button>
                   )}
-
-                  {/* File info and actions */}
                   <div className="flex items-center gap-3">
                     {!attachment.mime_type.startsWith("image/") && (
-                      <div className="shrink-0 text-muted-foreground">
-                        {getFileIcon(attachment.mime_type)}
-                      </div>
+                      <div className="shrink-0 text-muted-foreground">{getFileIcon(attachment.mime_type)}</div>
                     )}
-                    
-                    <button
-                      className="flex-1 min-w-0 text-left"
-                      onClick={() => handlePreview(attachment.file_path, attachment.mime_type)}
-                    >
-                      <p className="text-sm font-medium truncate">
-                        {attachment.file_name}
-                      </p>
+                    <button className="flex-1 min-w-0 text-left" onClick={() => handlePreview(attachment.file_path, attachment.mime_type)}>
+                      <p className="text-sm font-medium truncate">{attachment.file_name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {formatFileSize(attachment.file_size)} • {" "}
-                        {formatDistanceToNow(new Date(attachment.created_at), {
-                          addSuffix: true,
-                          locale: ru,
-                        })}
+                        {formatFileSize(attachment.file_size)} •{" "}
+                        {formatDistanceToNow(new Date(attachment.created_at), { addSuffix: true, locale: ru })}
                       </p>
                     </button>
-
                     <div className="flex gap-1 shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleDownload(attachment.file_path, attachment.file_name)}
-                      >
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDownload(attachment.file_path, attachment.file_name)}>
                         <Download className="h-4 w-4" />
                       </Button>
                       {(user?.id === attachment.uploaded_by || isStaff) && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() =>
-                            setDeleteId({ id: attachment.id, filePath: attachment.file_path })
-                          }
-                        >
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteId({ id: attachment.id, filePath: attachment.file_path })}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       )}
@@ -243,54 +205,30 @@ export function TicketAttachments({ ticketId, canUpload }: TicketAttachmentsProp
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Нет вложений
-            </p>
+            <p className="text-sm text-muted-foreground text-center py-4">Нет вложений</p>
           )}
         </CardContent>
       </Card>
 
-      {/* Delete confirmation dialog */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Удалить файл?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Это действие нельзя отменить. Файл будет удален навсегда.
-            </AlertDialogDescription>
+            <AlertDialogDescription>Это действие нельзя отменить. Файл будет удален навсегда.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Удалить
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Удалить</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Image preview modal */}
       {previewUrl && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
-          onClick={() => setPreviewUrl(null)}
-        >
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-4 right-4 text-white hover:bg-white/20"
-            onClick={() => setPreviewUrl(null)}
-          >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={() => setPreviewUrl(null)}>
+          <Button variant="ghost" size="icon" className="absolute top-4 right-4 text-white hover:bg-white/20" onClick={() => setPreviewUrl(null)}>
             <X className="h-6 w-6" />
           </Button>
-          <img
-            src={previewUrl}
-            alt="Preview"
-            className="max-h-[90vh] max-w-[90vw] object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
+          <img src={previewUrl} alt="Preview" className="max-h-[90vh] max-w-[90vw] object-contain" onClick={(e) => e.stopPropagation()} />
         </div>
       )}
     </>

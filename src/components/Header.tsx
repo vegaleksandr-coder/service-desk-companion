@@ -1,7 +1,7 @@
-import { Bell, Search, Menu } from "lucide-react";
+import { Search, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { NotificationCenter } from "@/components/NotificationCenter";
 
 interface HeaderProps {
   title?: string;
@@ -41,15 +41,7 @@ export function Header({ title = "Журнал заявок", showSearch = true 
           </Button>
 
           {/* Notifications */}
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5" />
-            <Badge 
-              variant="destructive" 
-              className="absolute -top-0.5 -right-0.5 h-4 w-4 p-0 flex items-center justify-center text-[10px]"
-            >
-              3
-            </Badge>
-          </Button>
+          <NotificationCenter />
         </div>
       </div>
     </header>

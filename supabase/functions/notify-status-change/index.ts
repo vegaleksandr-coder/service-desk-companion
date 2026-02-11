@@ -155,6 +155,24 @@ serve(async (req) => {
       pushTag = `assignee-${ticket.id}`;
     }
 
+    // Create in-app notifications
+    if (userIdsArray.length > 0 && pushTitle) {
+      const notifRows = userIdsArray.map((uid) => ({
+        user_id: uid,
+        type: type,
+        title: pushTitle,
+        message: pushBody,
+        ticket_id: ticket.id,
+      }));
+
+      const { error: notifError } = await supabase
+        .from("notifications")
+        .insert(notifRows);
+      if (notifError) {
+        console.error("Error inserting notifications:", notifError);
+      }
+    }
+
     // Send emails
     if (emailsToSend.length > 0 && emailSubject) {
       const results = await Promise.allSettled(

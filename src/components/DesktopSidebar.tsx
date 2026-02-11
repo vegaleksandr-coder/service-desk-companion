@@ -145,7 +145,7 @@ export function DesktopSidebar() {
         </div>
 
         {/* Admin navigation */}
-        {role === 'admin' && (
+        {(role === 'admin' || profile?.can_manage_users) && (
           <>
             <Separator className="my-4 bg-sidebar-border" />
             <div className="space-y-1">
@@ -154,9 +154,13 @@ export function DesktopSidebar() {
                   Администрирование
                 </span>
               )}
-              {adminNavItems.map((item) => (
-                <NavLink key={item.path} {...item} />
-              ))}
+              {role === 'admin' ? (
+                adminNavItems.map((item) => (
+                  <NavLink key={item.path} {...item} />
+                ))
+              ) : (
+                <NavLink path="/admin/users" icon={Users} label="Пользователи" />
+              )}
             </div>
           </>
         )}

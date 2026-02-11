@@ -7,10 +7,11 @@ type AppRole = "admin" | "executor" | "user";
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredRole?: AppRole | AppRole[];
+  allowUserManagers?: boolean;
 }
 
-export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
-  const { user, role, isLoading } = useAuth();
+export function ProtectedRoute({ children, requiredRole, allowUserManagers }: ProtectedRouteProps) {
+  const { user, role, profile, isLoading } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -27,7 +28,9 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
 
   if (requiredRole) {
     const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
-    if (role && !roles.includes(role)) {
+    const hasRole = role && roles.includes(role);
+    const isUserManager = allowUserManagers && profile?.can_manage_users;
+    if (!hasRole && !isUserManager) {
       return <Navigate to="/" replace />;
     }
   }

@@ -10,6 +10,7 @@ export interface AdminUser {
   email: string;
   avatar_url: string | null;
   role: AppRole;
+  can_manage_users: boolean;
   created_at: string;
 }
 
@@ -19,7 +20,7 @@ export function useAdminUsers() {
     queryFn: async (): Promise<AdminUser[]> => {
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select("user_id, name, email, avatar_url, created_at")
+        .select("user_id, name, email, avatar_url, created_at, can_manage_users")
         .order("created_at", { ascending: false });
 
       if (profilesError) throw profilesError;
@@ -41,6 +42,7 @@ export function useAdminUsers() {
         email: p.email,
         avatar_url: p.avatar_url,
         role: roleMap.get(p.user_id) || "user",
+        can_manage_users: p.can_manage_users ?? false,
         created_at: p.created_at,
       }));
     },
@@ -183,6 +185,24 @@ export function useCreateUser() {
       }
 
       return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+    },
+  });
+}
+
+export function useToggleManageUsers() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ userId, canManageUsers }: { userId: string; canManageUsers: boolean }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ can_manage_users: canManageUsers } as any)
+        .eq("user_id", userId);
+
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });

@@ -97,10 +97,7 @@ export default function Login() {
             </Button>
             
             <p className="text-sm text-muted-foreground text-center">
-              Нет аккаунта?{" "}
-              <Link to="/signup" className="text-primary hover:underline font-medium">
-                Зарегистрироваться
-              </Link>
+              Для получения доступа обратитесь к администратору
             </p>
           </CardFooter>
         </form>

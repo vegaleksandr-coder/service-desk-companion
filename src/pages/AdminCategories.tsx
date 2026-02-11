@@ -100,6 +100,12 @@ const colorOptions = [
   { value: "purple", label: "Фиолетовый", class: "bg-purple-500" },
   { value: "red", label: "Красный", class: "bg-red-500" },
   { value: "teal", label: "Бирюзовый", class: "bg-teal-500" },
+  { value: "yellow", label: "Жёлтый", class: "bg-yellow-500" },
+  { value: "pink", label: "Розовый", class: "bg-pink-500" },
+  { value: "indigo", label: "Индиго", class: "bg-indigo-500" },
+  { value: "gray", label: "Серый", class: "bg-gray-500" },
+  { value: "emerald", label: "Изумрудный", class: "bg-emerald-500" },
+  { value: "amber", label: "Янтарный", class: "bg-amber-500" },
 ];
 
 const getIconComponent = (iconName?: string | null) => {

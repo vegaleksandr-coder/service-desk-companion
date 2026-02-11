@@ -50,19 +50,47 @@ import {
   HelpCircle,
   Palette,
   Users,
-  Loader2
+  Loader2,
+  Calculator,
+  Truck,
+  Wrench,
+  ConciergeBell,
+  ShoppingCart,
+  Building2,
+  Phone,
+  Shield,
+  ClipboardList,
+  Hammer,
+  HeartPulse,
+  GraduationCap,
+  Car,
+  Utensils
 } from "lucide-react";
 import { CategoryMembersDialog } from "@/components/CategoryMembersDialog";
 import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory, Category } from "@/hooks/useTickets";
 import { toast } from "sonner";
 
 const iconOptions = [
-  { value: "monitor", label: "Монитор", icon: Monitor },
-  { value: "wifi", label: "Wi-Fi", icon: Wifi },
+  { value: "monitor", label: "IT / Монитор", icon: Monitor },
+  { value: "wifi", label: "Wi-Fi / Сеть", icon: Wifi },
   { value: "mail", label: "Почта", icon: Mail },
   { value: "printer", label: "Принтер", icon: Printer },
   { value: "help", label: "Справка", icon: HelpCircle },
   { value: "folder", label: "Папка", icon: FolderOpen },
+  { value: "calculator", label: "Бухгалтерия", icon: Calculator },
+  { value: "truck", label: "Снабжение", icon: Truck },
+  { value: "wrench", label: "Инж.-тех. служба", icon: Wrench },
+  { value: "concierge", label: "Ресепшен", icon: ConciergeBell },
+  { value: "shopping", label: "Закупки", icon: ShoppingCart },
+  { value: "building", label: "АХО / Здание", icon: Building2 },
+  { value: "phone", label: "Телефония", icon: Phone },
+  { value: "shield", label: "Безопасность", icon: Shield },
+  { value: "clipboard", label: "Канцелярия", icon: ClipboardList },
+  { value: "hammer", label: "Ремонт", icon: Hammer },
+  { value: "medical", label: "Медицина", icon: HeartPulse },
+  { value: "education", label: "Обучение", icon: GraduationCap },
+  { value: "car", label: "Транспорт", icon: Car },
+  { value: "catering", label: "Питание", icon: Utensils },
 ];
 
 const colorOptions = [

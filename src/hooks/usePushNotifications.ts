@@ -24,7 +24,7 @@ async function registerServiceWorker() {
   }
 }
 
-async function subscribeWebPush(registration: ServiceWorkerRegistration, vapidPublicKey: string) {
+async function subscribeWebPush(registration: ServiceWorkerRegistration & { pushManager: any }, vapidPublicKey: string) {
   try {
     let subscription = await registration.pushManager.getSubscription();
     if (!subscription) {
@@ -85,7 +85,7 @@ export function usePushNotifications() {
     const registration = await registerServiceWorker();
     if (!registration) return;
 
-    const subscription = await subscribeWebPush(registration, vapidKey);
+    const subscription = await subscribeWebPush(registration as any, vapidKey);
     if (!subscription) return;
 
     await saveSubscription(user.id, "web", subscription.toJSON());

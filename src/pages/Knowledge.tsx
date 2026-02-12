@@ -236,6 +236,7 @@ export default function Knowledge() {
   const [editingFaq, setEditingFaq] = useState<FAQ | null>(null);
   const [deletingFaqId, setDeletingFaqId] = useState<string | null>(null);
   const [editingGuide, setEditingGuide] = useState<Guide | null>(null);
+  const [createFaqForCategory, setCreateFaqForCategory] = useState<string | null>(null);
 
   const isAdmin = role === "admin";
 
@@ -327,7 +328,7 @@ export default function Knowledge() {
                 return (
                   <Card
                     key={cat.id}
-                    className={`hover:shadow-md transition-shadow cursor-pointer ${isSelected ? "ring-2 ring-primary" : ""}`}
+                    className={`hover:shadow-md transition-shadow cursor-pointer relative group ${isSelected ? "ring-2 ring-primary" : ""}`}
                     onClick={() => setSelectedCategoryId(isSelected ? null : cat.id)}
                   >
                     <CardContent className="p-4 text-center">
@@ -339,6 +340,18 @@ export default function Knowledge() {
                         <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{cat.description}</p>
                       )}
                     </CardContent>
+                    {isAdmin && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCreateFaqForCategory(cat.id);
+                          setFaqDialogOpen(true);
+                        }}
+                        className="absolute -top-2 -right-2 h-7 w-7 bg-primary text-primary-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    )}
                   </Card>
                 );
               })}
@@ -359,10 +372,11 @@ export default function Knowledge() {
               )}
             </div>
             {isAdmin && (
-              <Button
+               <Button
                 size="sm"
                 onClick={() => {
                   setEditingFaq(null);
+                  setCreateFaqForCategory(null);
                   setFaqDialogOpen(true);
                 }}
               >
@@ -448,8 +462,14 @@ export default function Knowledge() {
       {/* FAQ Dialog */}
       <FaqManageDialog
         open={faqDialogOpen}
-        onOpenChange={setFaqDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCreateFaqForCategory(null);
+          }
+          setFaqDialogOpen(open);
+        }}
         faq={editingFaq}
+        defaultCategoryId={createFaqForCategory}
       />
 
       {/* Guide Edit Dialog */}

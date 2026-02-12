@@ -12,7 +12,7 @@ export interface CategoryMember {
 
 export interface CategoryMemberWithProfile extends CategoryMember {
   name: string;
-  email: string;
+  email?: string;
   avatar_url: string | null;
 }
 
@@ -31,12 +31,12 @@ export function useCategoryMembers(categoryId: string | null | undefined) {
 
       const userIds = data.map((m) => m.user_id);
       const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, name, email, avatar_url")
+        .from("profiles_public" as any)
+        .select("user_id, name, avatar_url")
         .in("user_id", userIds);
 
       const profileMap = new Map(
-        (profiles || []).map((p) => [p.user_id, p])
+        (profiles as any[] || []).map((p: any) => [p.user_id, p])
       );
 
       return data.map((m) => {
@@ -45,7 +45,6 @@ export function useCategoryMembers(categoryId: string | null | undefined) {
           ...m,
           role: m.role as "admin" | "executor",
           name: profile?.name || "Неизвестный",
-          email: profile?.email || "",
           avatar_url: profile?.avatar_url || null,
         };
       });
@@ -123,12 +122,13 @@ export function useCategoryExecutors(categoryId: string | null | undefined) {
       const userIds = members.map((m) => m.user_id);
 
       const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, name, email")
+        .from("profiles_public" as any)
+        .select("user_id, name")
         .in("user_id", userIds);
 
-      return (profiles || []).map((p) => ({
-        ...p,
+      return (profiles as any[] || []).map((p: any) => ({
+        user_id: p.user_id,
+        name: p.name,
         category_role: members.find((m) => m.user_id === p.user_id)?.role as "admin" | "executor",
       }));
     },

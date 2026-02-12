@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import ReactMarkdown from "react-markdown";
 import { 
   Search, 
   BookOpen, 
@@ -109,28 +110,50 @@ const guideKeyIcons: Record<string, React.ComponentType<{ className?: string }>>
 };
 
 function GuideSectionCard({ section }: { section: { title: string; content: string[] } }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="border-b border-border last:border-b-0">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center justify-between w-full p-4 hover:bg-muted/50 transition-colors text-left"
-      >
-        <h3 className="font-medium text-sm">{section.title}</h3>
-        <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-      {open && (
-        <div className="px-4 pb-4 space-y-2">
-          {section.content.map((text, i) => (
-            <p key={i} className="text-sm text-muted-foreground leading-relaxed">
-              {text}
-            </p>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+   const [open, setOpen] = useState(false);
+   return (
+     <div className="border-b border-border last:border-b-0">
+       <button
+         onClick={() => setOpen(!open)}
+         className="flex items-center justify-between w-full p-4 hover:bg-muted/50 transition-colors text-left"
+       >
+         <h3 className="font-medium text-sm">{section.title}</h3>
+         <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+       </button>
+       {open && (
+         <div className="px-4 pb-4 space-y-2">
+           {section.content.map((text, i) => (
+             <div key={i} className="text-sm text-muted-foreground leading-relaxed prose prose-sm dark:prose-invert max-w-none">
+               <ReactMarkdown
+                 components={{
+                   p: ({ node, ...props }) => <p className="mb-2" {...props} />,
+                   ul: ({ node, ...props }) => <ul className="list-disc list-inside mb-2" {...props} />,
+                   ol: ({ node, ...props }) => <ol className="list-decimal list-inside mb-2" {...props} />,
+                   li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+                 code: ({ node, inline, children, ...props }: any) => 
+                   inline ? (
+                     <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono" {...props }>{children}</code>
+                   ) : (
+                     <code className="block bg-muted p-2 rounded text-xs font-mono overflow-x-auto mb-2" {...props}>{children}</code>
+                   ),
+                   blockquote: ({ node, ...props }) => <blockquote className="border-l-2 border-primary pl-3 italic mb-2" {...props} />,
+                   strong: ({ node, ...props }) => <strong className="font-semibold" {...props} />,
+                   em: ({ node, ...props }) => <em className="italic" {...props} />,
+                   h1: ({ node, ...props }) => <h1 className="text-lg font-bold mb-2" {...props} />,
+                   h2: ({ node, ...props }) => <h2 className="text-base font-bold mb-2" {...props} />,
+                   h3: ({ node, ...props }) => <h3 className="text-sm font-bold mb-2" {...props} />,
+                   a: ({ node, ...props }) => <a className="text-primary underline hover:no-underline" {...props} />,
+                 }}
+               >
+                 {text}
+               </ReactMarkdown>
+             </div>
+           ))}
+         </div>
+       )}
+     </div>
+   );
+ }
 
 function FaqItem({
   faq,
@@ -156,11 +179,33 @@ function FaqItem({
           className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
         />
       </button>
-      {open && (
-        <div className="px-4 pb-4">
-          <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-            {faq.answer}
-          </p>
+       {open && (
+         <div className="px-4 pb-4">
+           <div className="text-sm text-muted-foreground prose prose-sm dark:prose-invert max-w-none">
+             <ReactMarkdown
+               components={{
+                 p: ({ node, ...props }) => <p className="mb-2" {...props} />,
+                 ul: ({ node, ...props }) => <ul className="list-disc list-inside mb-2" {...props} />,
+                 ol: ({ node, ...props }) => <ol className="list-decimal list-inside mb-2" {...props} />,
+                 li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+                 code: ({ node, inline, children, ...props }: any) => 
+                   inline ? (
+                     <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono" {...props}>{children}</code>
+                   ) : (
+                     <code className="block bg-muted p-2 rounded text-xs font-mono overflow-x-auto mb-2" {...props}>{children}</code>
+                   ),
+                 blockquote: ({ node, ...props }) => <blockquote className="border-l-2 border-primary pl-3 italic mb-2" {...props} />,
+                 strong: ({ node, ...props }) => <strong className="font-semibold" {...props} />,
+                 em: ({ node, ...props }) => <em className="italic" {...props} />,
+                 h1: ({ node, ...props }) => <h1 className="text-lg font-bold mb-2" {...props} />,
+                 h2: ({ node, ...props }) => <h2 className="text-base font-bold mb-2" {...props} />,
+                 h3: ({ node, ...props }) => <h3 className="text-sm font-bold mb-2" {...props} />,
+                 a: ({ node, ...props }) => <a className="text-primary underline hover:no-underline" {...props} />,
+               }}
+             >
+               {faq.answer}
+             </ReactMarkdown>
+           </div>
           {isAdmin && (
             <div className="flex gap-2 mt-3">
               <Button size="sm" variant="outline" onClick={onEdit}>

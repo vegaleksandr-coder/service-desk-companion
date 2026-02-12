@@ -432,12 +432,49 @@ export default function AdminUsers() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Пароль *</label>
-              <Input
-                type="password"
-                placeholder="Минимум 6 символов"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-              />
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  placeholder="Минимум 8 символов"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0"
+                  title="Сгенерировать надёжный пароль"
+                  onClick={() => {
+                    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%&*';
+                    const arr = new Uint8Array(12);
+                    crypto.getRandomValues(arr);
+                    let pwd = '';
+                    for (const b of arr) pwd += chars[b % chars.length];
+                    // Ensure at least one uppercase, lowercase, digit
+                    pwd = pwd.slice(0, 9) + 'A' + 'a' + '1';
+                    setNewPassword(pwd);
+                    navigator.clipboard.writeText(pwd).then(() => toast.success("Пароль сгенерирован и скопирован"));
+                  }}
+                >
+                  <Dices className="h-4 w-4" />
+                </Button>
+                {newPassword && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0"
+                    title="Скопировать пароль"
+                    onClick={() => {
+                      navigator.clipboard.writeText(newPassword).then(() => toast.success("Пароль скопирован"));
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">Заглавные, строчные буквы и цифры обязательны</p>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Роль</label>

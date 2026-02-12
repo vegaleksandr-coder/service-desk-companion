@@ -190,6 +190,36 @@ export type Database = {
           },
         ]
       }
+      guides: {
+        Row: {
+          guide_key: string
+          id: string
+          sections: Json
+          sort_order: number
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          guide_key: string
+          id?: string
+          sections?: Json
+          sort_order?: number
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          guide_key?: string
+          id?: string
+          sections?: Json
+          sort_order?: number
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string

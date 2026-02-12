@@ -41,6 +41,8 @@ import { useCategories } from "@/hooks/useTickets";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFaqs, useDeleteFaq, type FAQ } from "@/hooks/useFaqs";
 import { FaqManageDialog } from "@/components/FaqManageDialog";
+import { useGuides, type Guide } from "@/hooks/useGuides";
+import { GuideEditDialog } from "@/components/GuideEditDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -94,94 +96,19 @@ const colorMap: Record<string, string> = {
 const getIcon = (iconName?: string | null) => iconMap[iconName || ""] || FolderOpen;
 const getColor = (colorName?: string | null) => colorMap[colorName || ""] || "bg-primary";
 
-interface GuideSection {
-  title: string;
-  content: string[];
-}
+const guideKeyRoles: Record<string, string[]> = {
+  general: ["user", "executor", "admin"],
+  executor: ["executor", "admin"],
+  admin: ["admin"],
+};
 
-const generalGuide: GuideSection[] = [
-  {
-    title: "Начало работы",
-    content: [
-      "Для входа в систему используйте логин и пароль, предоставленные администратором. Саморегистрация отключена — учётные записи создаются только администраторами.",
-      "Если вы забыли пароль, нажмите «Забыли пароль?» на странице входа и следуйте инструкциям в письме.",
-      "После входа вы попадёте на главную страницу (дашборд), где отображается сводная статистика по вашим заявкам.",
-    ],
-  },
-  {
-    title: "Создание заявки",
-    content: [
-      "Нажмите кнопку «Новая заявка» в боковом меню или на главной странице.",
-      "Заполните заголовок и описание проблемы. Выберите категорию, приоритет и, при необходимости, укажите дедлайн.",
-      "К заявке можно прикрепить файлы (скриншоты, документы) — это поможет исполнителю быстрее разобраться.",
-    ],
-  },
-  {
-    title: "Отслеживание заявок",
-    content: [
-      "Все ваши заявки доступны в разделе «Мои заявки». Используйте фильтры по статусу, приоритету и категории для быстрого поиска.",
-      "Статусы заявок: Новая → В работе → Ожидание → Решена → Закрыта.",
-      "В карточке заявки вы видите полную историю изменений и комментарии.",
-    ],
-  },
-  {
-    title: "Комментарии и общение",
-    content: [
-      "Вы можете оставлять комментарии к своим заявкам, чтобы уточнить детали или ответить на вопросы исполнителя.",
-      "Push-уведомления сообщат вам об изменении статуса заявки (если вы разрешили уведомления в браузере).",
-    ],
-  },
-  {
-    title: "Профиль",
-    content: [
-      "В разделе «Профиль» вы можете изменить своё имя и загрузить аватар.",
-    ],
-  },
-];
+const guideKeyIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+  general: BookOpen,
+  executor: UserCog,
+  admin: Shield,
+};
 
-const executorGuide: GuideSection[] = [
-  {
-    title: "Панель исполнителя",
-    content: [
-      "Раздел «Исполнитель» отображает заявки, назначенные на вас, а также новые заявки в категориях, к которым вы прикреплены.",
-      "Вы можете менять статус заявки: взять в работу, перевести в ожидание или отметить как решённую.",
-    ],
-  },
-  {
-    title: "Работа с заявками",
-    content: [
-      "Оставляйте комментарии для заявителя, чтобы уточнить детали. Также доступны внутренние комментарии, видимые только сотрудникам.",
-      "Вы можете прикреплять файлы к заявкам (например, скриншоты решения).",
-      "При изменении статуса заявки автору автоматически отправляется уведомление.",
-    ],
-  },
-];
-
-const adminGuide: GuideSection[] = [
-  {
-    title: "Управление пользователями",
-    content: [
-      "В разделе «Администрирование → Пользователи» вы можете создавать новых пользователей, менять их роли (Пользователь / Исполнитель / Администратор) и сбрасывать пароли.",
-      "Делегируйте право управления пользователями — отметьте «Может управлять пользователями» в профиле нужного сотрудника.",
-    ],
-  },
-  {
-    title: "Управление категориями",
-    content: [
-      "В разделе «Администрирование → Категории» создавайте и редактируйте категории заявок. Для каждой категории можно выбрать иконку и цвет.",
-      "Назначайте участников категорий — администраторов и исполнителей категории. Исполнители категории видят все заявки в своей категории.",
-    ],
-  },
-  {
-    title: "Полный доступ",
-    content: [
-      "Администратор видит все заявки во всех категориях и может назначать исполнителей, менять статусы и редактировать любые заявки.",
-      "Удаление пользователей и категорий доступно только глобальным администраторам.",
-    ],
-  },
-];
-
-function GuideSectionCard({ section }: { section: GuideSection }) {
+function GuideSectionCard({ section }: { section: { title: string; content: string[] } }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="border-b border-border last:border-b-0">
@@ -257,22 +184,20 @@ export default function Knowledge() {
   const { data: categories = [], isLoading } = useCategories();
   const { role } = useAuth();
   const { data: faqs = [] } = useFaqs();
+  const { data: guides = [] } = useGuides();
   const deleteFaq = useDeleteFaq();
   const [faqDialogOpen, setFaqDialogOpen] = useState(false);
   const [editingFaq, setEditingFaq] = useState<FAQ | null>(null);
   const [deletingFaqId, setDeletingFaqId] = useState<string | null>(null);
+  const [editingGuide, setEditingGuide] = useState<Guide | null>(null);
 
   const isAdmin = role === "admin";
 
-  const guideBlocks = [
-    { title: "Общая инструкция", icon: BookOpen, sections: generalGuide, roles: ["user", "executor", "admin"] },
-    { title: "Инструкция для исполнителя", icon: UserCog, sections: executorGuide, roles: ["executor", "admin"] },
-    { title: "Инструкция для администратора", icon: Shield, sections: adminGuide, roles: ["admin"] },
-  ];
+  const visibleGuides = guides.filter(
+    (g) => role && (guideKeyRoles[g.guide_key] || []).includes(role)
+  );
 
-  const visibleGuides = guideBlocks.filter(g => role && g.roles.includes(role));
-
-  const filterSections = (sections: GuideSection[]) => {
+  const filterSections = (sections: { title: string; content: string[] }[]) => {
     if (!searchQuery.trim()) return sections;
     const q = searchQuery.toLowerCase();
     return sections.filter(
@@ -428,14 +353,26 @@ export default function Knowledge() {
 
         {/* User Guides */}
         {visibleGuides.map((guide) => {
-          const Icon = guide.icon;
+          const Icon = guideKeyIcons[guide.guide_key] || BookOpen;
           const filtered = filterSections(guide.sections);
           if (searchQuery && filtered.length === 0) return null;
           return (
-            <div key={guide.title}>
-              <div className="flex items-center gap-2 mb-4">
-                <Icon className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-semibold">{guide.title}</h2>
+            <div key={guide.id}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Icon className="h-5 w-5 text-primary" />
+                  <h2 className="text-lg font-semibold">{guide.title}</h2>
+                </div>
+                {isAdmin && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setEditingGuide(guide)}
+                  >
+                    <Pencil className="h-3 w-3 mr-1" />
+                    Редактировать
+                  </Button>
+                )}
               </div>
               <Card>
                 <CardContent className="p-0">
@@ -459,7 +396,14 @@ export default function Knowledge() {
         faq={editingFaq}
       />
 
-      {/* Delete Confirmation */}
+      {/* Guide Edit Dialog */}
+      <GuideEditDialog
+        open={!!editingGuide}
+        onOpenChange={(open) => !open && setEditingGuide(null)}
+        guide={editingGuide}
+      />
+
+
       <AlertDialog open={!!deletingFaqId} onOpenChange={(open) => !open && setDeletingFaqId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

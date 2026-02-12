@@ -8,11 +8,11 @@ import { TicketCard } from "@/components/TicketCard";
 import { StatsCard } from "@/components/StatsCard";
 import { useTickets } from "@/hooks/useTickets";
 import { useAuth } from "@/contexts/AuthContext";
+import { NotificationCenter } from "@/components/NotificationCenter";
 import { 
   Mail, 
   LogOut, 
   Settings, 
-  Bell,
   ClipboardList,
   Clock,
   CheckCircle2,
@@ -75,12 +75,12 @@ export default function Profile() {
               </div>
 
               <div className="flex gap-2">
-                <Button variant="outline" size="icon">
-                  <Bell className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="icon">
-                  <Settings className="h-4 w-4" />
-                </Button>
+                <NotificationCenter />
+                {role === 'admin' && (
+                  <Button variant="outline" size="icon" onClick={() => navigate('/admin/settings')}>
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                )}
                 <Button variant="outline" size="icon" onClick={handleSignOut}>
                   <LogOut className="h-4 w-4" />
                 </Button>

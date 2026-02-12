@@ -2,6 +2,8 @@ import { Search, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import { MobileMenuSheet } from "@/components/MobileMenuSheet";
+import { useState } from "react";
 
 interface HeaderProps {
   title?: string;
@@ -9,11 +11,14 @@ interface HeaderProps {
 }
 
 export function Header({ title = "Журнал заявок", showSearch = true }: HeaderProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
     <header className="sticky top-0 z-40 bg-card/80 backdrop-blur-md border-b border-border">
+      <MobileMenuSheet open={menuOpen} onOpenChange={setMenuOpen} />
       <div className="flex items-center justify-between h-14 px-4 md:px-6">
         {/* Mobile menu button */}
-        <Button variant="ghost" size="icon" className="md:hidden">
+        <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMenuOpen(true)}>
           <Menu className="h-5 w-5" />
         </Button>
 

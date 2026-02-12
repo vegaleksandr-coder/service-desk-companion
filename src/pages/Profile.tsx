@@ -9,16 +9,21 @@ import { StatsCard } from "@/components/StatsCard";
 import { useTickets } from "@/hooks/useTickets";
 import { useAuth } from "@/contexts/AuthContext";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import { supabase } from "@/integrations/supabase/client";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
 import { 
   Mail, 
   LogOut, 
   Settings, 
+  Camera,
   ClipboardList,
   Clock,
   CheckCircle2,
   Loader2
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 
 const roleLabels: Record<string, string> = {
   admin: 'Администратор',
@@ -28,8 +33,10 @@ const roleLabels: Record<string, string> = {
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { user, profile, role, signOut } = useAuth();
+  const { user, profile, role, signOut, refreshProfile } = useAuth();
   const { data: allTickets, isLoading } = useTickets();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
   
   // Filter tickets created by current user
   const myTickets = (allTickets || []).filter(t => t.created_by === user?.id);
@@ -45,6 +52,64 @@ export default function Profile() {
     navigate("/login");
   };
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Файл слишком большой (макс. 2 МБ)");
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Можно загружать только изображения");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const filePath = `${user.id}/avatar.${ext}`;
+
+      // Remove old avatar files
+      const { data: existingFiles } = await supabase.storage
+        .from("avatars")
+        .list(user.id);
+      if (existingFiles?.length) {
+        await supabase.storage
+          .from("avatars")
+          .remove(existingFiles.map((f) => `${user.id}/${f.name}`));
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(filePath);
+
+      const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: avatarUrl })
+        .eq("user_id", user.id);
+
+      if (updateError) throw updateError;
+
+      await refreshProfile();
+      toast.success("Аватар обновлён");
+    } catch (err: any) {
+      toast.error("Ошибка загрузки: " + (err.message || "Попробуйте позже"));
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   return (
     <Layout title="Профиль" showSearch={false}>
       <div className="p-4 md:p-6 space-y-6">
@@ -52,12 +117,29 @@ export default function Profile() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex flex-col md:flex-row items-center md:items-start gap-4">
-              <Avatar className="h-20 w-20">
-                <AvatarImage src={profile?.avatar_url || undefined} />
-                <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
-                  {profile?.name?.charAt(0) || "U"}
-                </AvatarFallback>
-              </Avatar>
+              <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                <Avatar className="h-20 w-20">
+                  <AvatarImage src={profile?.avatar_url || undefined} />
+                  <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
+                    {profile?.name?.charAt(0) || "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  {uploading ? (
+                    <Loader2 className="h-5 w-5 text-white animate-spin" />
+                  ) : (
+                    <Camera className="h-5 w-5 text-white" />
+                  )}
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarUpload}
+                  disabled={uploading}
+                />
+              </div>
               
               <div className="flex-1 text-center md:text-left">
                 <h1 className="text-xl font-bold">{profile?.name || "Загрузка..."}</h1>

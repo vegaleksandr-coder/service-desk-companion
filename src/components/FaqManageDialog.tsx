@@ -25,9 +25,10 @@ interface FaqManageDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   faq?: FAQ | null;
+  defaultCategoryId?: string | null;
 }
 
-export function FaqManageDialog({ open, onOpenChange, faq }: FaqManageDialogProps) {
+export function FaqManageDialog({ open, onOpenChange, faq, defaultCategoryId }: FaqManageDialogProps) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [categoryId, setCategoryId] = useState<string>("none");
@@ -46,9 +47,9 @@ export function FaqManageDialog({ open, onOpenChange, faq }: FaqManageDialogProp
     } else {
       setQuestion("");
       setAnswer("");
-      setCategoryId("none");
+      setCategoryId(defaultCategoryId || "none");
     }
-  }, [faq, open]);
+  }, [faq, open, defaultCategoryId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

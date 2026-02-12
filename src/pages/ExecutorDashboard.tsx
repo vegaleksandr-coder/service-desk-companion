@@ -58,12 +58,12 @@ function useExecutorTickets() {
       });
 
       const [{ data: profiles }, { data: categories }] = await Promise.all([
-        supabase.from("profiles").select("id, user_id, name, email, avatar_url").in("user_id", Array.from(userIds)),
+        supabase.from("profiles_public" as any).select("id, user_id, name, avatar_url").in("user_id", Array.from(userIds)),
         supabase.from("categories").select("*").in("id", Array.from(catIds)),
       ]);
 
       const profileMap = new Map<string, TicketProfile>();
-      profiles?.forEach((p) => profileMap.set(p.user_id, { id: p.id, name: p.name, email: p.email, avatar_url: p.avatar_url }));
+      (profiles as any[])?.forEach((p: any) => profileMap.set(p.user_id, { id: p.id, name: p.name, avatar_url: p.avatar_url }));
 
       const catMap = new Map<string, Category>();
       categories?.forEach((c) => catMap.set(c.id, c as Category));

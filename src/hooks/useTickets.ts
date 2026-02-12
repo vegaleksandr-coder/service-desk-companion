@@ -13,7 +13,7 @@ export interface Category {
 export interface TicketProfile {
   id: string;
   name: string;
-  email: string;
+  email?: string;
   avatar_url: string | null;
 }
 
@@ -92,43 +92,25 @@ export function useTickets() {
         if (ticket.category_id) categoryIds.add(ticket.category_id);
       });
 
-      // Fetch profiles
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, name, email, avatar_url")
+      // Fetch profiles via public view (no email exposed)
+      const { data: profilesWithUserId } = await supabase
+        .from("profiles_public" as any)
+        .select("id, user_id, name, avatar_url")
         .in("user_id", Array.from(userIds));
 
+      const profileByUserId = new Map<string, TicketProfile>();
+      profilesWithUserId?.forEach((p: any) => {
+        profileByUserId.set(p.user_id, {
+          id: p.id,
+          name: p.name,
+          avatar_url: p.avatar_url,
+        });
+      });
       // Fetch categories
       const { data: categories } = await supabase
         .from("categories")
         .select("*")
         .in("id", Array.from(categoryIds));
-
-      const profileMap = new Map(
-        profiles?.map((p) => [p.id, p]) || []
-      );
-      
-      // Map profiles by user_id instead
-      const profileByUserIdMap = new Map<string, TicketProfile>();
-      profiles?.forEach((p) => {
-        profileByUserIdMap.set(p.id, p as TicketProfile);
-      });
-
-      // Actually we need to match by user_id from profiles table
-      const { data: profilesWithUserId } = await supabase
-        .from("profiles")
-        .select("id, user_id, name, email, avatar_url")
-        .in("user_id", Array.from(userIds));
-
-      const profileByUserId = new Map<string, TicketProfile>();
-      profilesWithUserId?.forEach((p) => {
-        profileByUserId.set(p.user_id, {
-          id: p.id,
-          name: p.name,
-          email: p.email,
-          avatar_url: p.avatar_url,
-        });
-      });
 
       const categoryMap = new Map(
         categories?.map((c) => [c.id, c as Category]) || []
@@ -161,16 +143,15 @@ export function useTicket(id: string) {
       if (ticket.assignee_id) userIds.add(ticket.assignee_id);
 
       const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, user_id, name, email, avatar_url")
+        .from("profiles_public" as any)
+        .select("id, user_id, name, avatar_url")
         .in("user_id", Array.from(userIds));
 
       const profileByUserId = new Map<string, TicketProfile>();
-      profiles?.forEach((p) => {
+      profiles?.forEach((p: any) => {
         profileByUserId.set(p.user_id, {
           id: p.id,
           name: p.name,
-          email: p.email,
           avatar_url: p.avatar_url,
         });
       });
@@ -197,16 +178,15 @@ export function useTicket(id: string) {
       comments?.forEach((c) => commentUserIds.add(c.user_id));
 
       const { data: commentProfiles } = await supabase
-        .from("profiles")
-        .select("id, user_id, name, email, avatar_url")
+        .from("profiles_public" as any)
+        .select("id, user_id, name, avatar_url")
         .in("user_id", Array.from(commentUserIds));
 
       const commentProfileMap = new Map<string, TicketProfile>();
-      commentProfiles?.forEach((p) => {
+      commentProfiles?.forEach((p: any) => {
         commentProfileMap.set(p.user_id, {
           id: p.id,
           name: p.name,
-          email: p.email,
           avatar_url: p.avatar_url,
         });
       });
@@ -370,16 +350,15 @@ export function useTicketHistory(ticketId: string) {
       history.forEach((h) => userIds.add(h.user_id));
 
       const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, user_id, name, email, avatar_url")
+        .from("profiles_public" as any)
+        .select("id, user_id, name, avatar_url")
         .in("user_id", Array.from(userIds));
 
       const profileMap = new Map<string, TicketProfile>();
-      profiles?.forEach((p) => {
+      profiles?.forEach((p: any) => {
         profileMap.set(p.user_id, {
           id: p.id,
           name: p.name,
-          email: p.email,
           avatar_url: p.avatar_url,
         });
       });

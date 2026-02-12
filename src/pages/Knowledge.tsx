@@ -226,6 +226,7 @@ function FaqItem({
 
 export default function Knowledge() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const { data: categories = [], isLoading } = useCategories();
   const { role } = useAuth();
   const { data: faqs = [] } = useFaqs();
@@ -250,13 +251,13 @@ export default function Knowledge() {
     );
   };
 
-  const filteredFaqs = searchQuery.trim()
-    ? faqs.filter(
-        (f) =>
-          f.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          f.answer.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : faqs;
+  const filteredFaqs = faqs.filter((f) => {
+    const matchesSearch = !searchQuery.trim() ||
+      f.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      f.answer.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategoryId === null || f.category_id === selectedCategoryId;
+    return matchesSearch && matchesCategory;
+  });
 
   // Group FAQs by category
   const faqsByCategory = new Map<string | null, FAQ[]>();
@@ -322,8 +323,13 @@ export default function Knowledge() {
               {categories.map((cat) => {
                 const Icon = getIcon(cat.icon);
                 const colorClass = getColor(cat.color);
+                const isSelected = selectedCategoryId === cat.id;
                 return (
-                  <Card key={cat.id} className="hover:shadow-md transition-shadow">
+                  <Card
+                    key={cat.id}
+                    className={`hover:shadow-md transition-shadow cursor-pointer ${isSelected ? "ring-2 ring-primary" : ""}`}
+                    onClick={() => setSelectedCategoryId(isSelected ? null : cat.id)}
+                  >
                     <CardContent className="p-4 text-center">
                       <div className={`h-12 w-12 rounded-xl ${colorClass} flex items-center justify-center mx-auto mb-3`}>
                         <Icon className="h-6 w-6 text-white" />
@@ -346,6 +352,11 @@ export default function Knowledge() {
             <div className="flex items-center gap-2">
               <MessageCircleQuestion className="h-5 w-5 text-primary" />
               <h2 className="text-lg font-semibold">Часто задаваемые вопросы</h2>
+              {selectedCategoryId && (
+                <Badge variant="secondary" className="cursor-pointer" onClick={() => setSelectedCategoryId(null)}>
+                  {getCategoryName(selectedCategoryId)} ✕
+                </Badge>
+              )}
             </div>
             {isAdmin && (
               <Button

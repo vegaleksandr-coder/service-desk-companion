@@ -6,15 +6,22 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { 
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { 
   Bell, 
   Mail, 
   MessageSquare,
   Clock,
   Shield,
   Database,
-  Save
+  Save,
+  FileSpreadsheet,
+  Loader2
 } from "lucide-react";
 import { toast } from "sonner";
+import { exportTicketStats, periodLabels, type PeriodType } from "@/utils/excelExport";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function AdminSettings() {
   const [settings, setSettings] = useState({
@@ -34,8 +41,30 @@ export default function AdminSettings() {
     telegramBotToken: "",
   });
 
+  const [statsPeriod, setStatsPeriod] = useState<PeriodType>("month");
+  const [exportingStats, setExportingStats] = useState(false);
+  const queryClient = useQueryClient();
+
   const handleSave = () => {
     toast.success("Настройки сохранены");
+  };
+
+  const handleExportStats = async () => {
+    setExportingStats(true);
+    try {
+      await exportTicketStats(statsPeriod);
+      toast.success("Файл статистики скачан");
+    } catch {
+      toast.error("Ошибка при экспорте статистики");
+    } finally {
+      setExportingStats(false);
+    }
+  };
+
+  const handleClearCache = () => {
+    queryClient.clear();
+    toast.success("Кэш очищен, данные будут загружены заново");
+    window.location.reload();
   };
 
   return (
@@ -240,12 +269,36 @@ export default function AdminSettings() {
             
             <Separator />
             
-            <div className="flex items-center gap-4">
-              <Button variant="outline">
-                <Database className="h-4 w-4 mr-2" />
-                Экспорт данных
-              </Button>
-              <Button variant="outline">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="font-medium flex items-center gap-2">
+                  <FileSpreadsheet className="h-4 w-4" />
+                  Экспорт статистики заявок
+                </label>
+                <div className="flex items-center gap-3">
+                  <Select value={statsPeriod} onValueChange={(v) => setStatsPeriod(v as PeriodType)}>
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(periodLabels).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" onClick={handleExportStats} disabled={exportingStats}>
+                    {exportingStats ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Database className="h-4 w-4 mr-2" />}
+                    Экспорт в Excel
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Выгрузка количества заявок по статусам и категориям
+                </p>
+              </div>
+
+              <Separator />
+
+              <Button variant="outline" onClick={handleClearCache}>
                 Очистить кэш
               </Button>
             </div>

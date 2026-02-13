@@ -17,13 +17,16 @@ import {
   Database,
   Save,
   FileSpreadsheet,
-  Loader2
+  Loader2,
+  AlertTriangle
 } from "lucide-react";
 import { toast } from "sonner";
 import { exportTicketStats, periodLabels, type PeriodType } from "@/utils/excelExport";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function AdminSettings() {
+  const { role } = useAuth();
   const [settings, setSettings] = useState({
     // Notifications
     emailNotifications: true,
@@ -44,6 +47,7 @@ export default function AdminSettings() {
   const [statsPeriod, setStatsPeriod] = useState<PeriodType>("month");
   const [exportingStats, setExportingStats] = useState(false);
   const queryClient = useQueryClient();
+  const isAdmin = role === 'admin';
 
   const handleSave = () => {
     toast.success("Настройки сохранены");
@@ -269,39 +273,50 @@ export default function AdminSettings() {
             
             <Separator />
             
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="font-medium flex items-center gap-2">
-                  <FileSpreadsheet className="h-4 w-4" />
-                  Экспорт статистики заявок
-                </label>
-                <div className="flex items-center gap-3">
-                  <Select value={statsPeriod} onValueChange={(v) => setStatsPeriod(v as PeriodType)}>
-                    <SelectTrigger className="w-[200px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(periodLabels).map(([key, label]) => (
-                        <SelectItem key={key} value={key}>{label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button variant="outline" onClick={handleExportStats} disabled={exportingStats}>
-                    {exportingStats ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Database className="h-4 w-4 mr-2" />}
-                    Экспорт в Excel
-                  </Button>
+            {!isAdmin && (
+              <div className="flex items-start gap-3 p-4 rounded-lg border" style={{ backgroundColor: 'hsl(var(--warning-bg))', borderColor: 'hsl(var(--warning))' }}>
+                <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: 'hsl(var(--warning))' }} />
+                <div className="text-sm" style={{ color: 'hsl(var(--warning))' }}>
+                  <strong>Экспорт и импорт пользователей доступны только администраторам</strong>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Выгрузка количества заявок по статусам и категориям
-                </p>
               </div>
+            )}
 
-              <Separator />
+            {isAdmin && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="font-medium flex items-center gap-2">
+                    <FileSpreadsheet className="h-4 w-4" />
+                    Экспорт статистики заявок
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <Select value={statsPeriod} onValueChange={(v) => setStatsPeriod(v as PeriodType)}>
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(periodLabels).map(([key, label]) => (
+                          <SelectItem key={key} value={key}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button variant="outline" onClick={handleExportStats} disabled={exportingStats}>
+                      {exportingStats ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Database className="h-4 w-4 mr-2" />}
+                      Экспорт в Excel
+                    </Button>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Выгрузка количества заявок по статусам и категориям
+                  </p>
+                </div>
 
-              <Button variant="outline" onClick={handleClearCache}>
-                Очистить кэш
-              </Button>
-            </div>
+                <Separator />
+
+                <Button variant="outline" onClick={handleClearCache}>
+                  Очистить кэш
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 

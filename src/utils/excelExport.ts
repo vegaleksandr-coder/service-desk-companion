@@ -129,40 +129,74 @@ export interface ImportUserRow {
   password: string;
 }
 
+export function downloadImportTemplate() {
+  const templateData = [
+    {
+      "Имя": "Иван Петров",
+      "Email": "ivan.petrov@example.com",
+      "Роль": "executor",
+      "Пароль": "SecurePass123!", // Optional - will be auto-generated if empty
+    },
+    {
+      "Имя": "Мария Сидорова",
+      "Email": "maria.sidorova@example.com",
+      "Роль": "user",
+      "Пароль": "", // Leave empty for auto-generation
+    },
+    {
+      "Имя": "Петр Иванов",
+      "Email": "petr.ivanov@example.com",
+      "Роль": "admin",
+      "Пароль": "AnotherPassword456!",
+    },
+  ];
+
+  const ws = XLSX.utils.json_to_sheet(templateData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Пользователи");
+
+  const colWidths = Object.keys(templateData[0]).map((key) => ({
+    wch: Math.max(key.length, 25),
+  }));
+  ws["!cols"] = colWidths;
+
+  XLSX.writeFile(wb, "Шаблон_импорта_пользователей.xlsx");
+}
+
 export function parseUsersExcel(file: File): Promise<ImportUserRow[]> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const wb = XLSX.read(data, { type: "array" });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json<Record<string, string>>(ws);
+   return new Promise((resolve, reject) => {
+     const reader = new FileReader();
+     reader.onload = (e) => {
+       try {
+         const data = new Uint8Array(e.target?.result as ArrayBuffer);
+         const wb = XLSX.read(data, { type: "array" });
+         const ws = wb.Sheets[wb.SheetNames[0]];
+         const json = XLSX.utils.sheet_to_json<Record<string, string>>(ws);
 
-        const roleMap: Record<string, string> = {
-          "администратор": "admin",
-          "исполнитель": "executor",
-          "пользователь": "user",
-          "admin": "admin",
-          "executor": "executor",
-          "user": "user",
-        };
+         const roleMap: Record<string, string> = {
+           "администратор": "admin",
+           "исполнитель": "executor",
+           "пользователь": "user",
+           "admin": "admin",
+           "executor": "executor",
+           "user": "user",
+         };
 
-        const users: ImportUserRow[] = json
-          .filter((row) => row["Email"] || row["email"])
-          .map((row) => ({
-            name: row["Имя"] || row["name"] || row["Name"] || "",
-            email: (row["Email"] || row["email"] || "").trim().toLowerCase(),
-            role: roleMap[(row["Роль"] || row["role"] || row["Role"] || "user").toLowerCase()] || "user",
-            password: row["Пароль"] || row["password"] || row["Password"] || "",
-          }));
+         const users: ImportUserRow[] = json
+           .filter((row) => row["Email"] || row["email"])
+           .map((row) => ({
+             name: row["Имя"] || row["name"] || row["Name"] || "",
+             email: (row["Email"] || row["email"] || "").trim().toLowerCase(),
+             role: roleMap[(row["Роль"] || row["role"] || row["Role"] || "user").toLowerCase()] || "user",
+             password: row["Пароль"] || row["password"] || row["Password"] || "",
+           }));
 
-        resolve(users);
-      } catch (err) {
-        reject(err);
-      }
-    };
-    reader.onerror = reject;
-    reader.readAsArrayBuffer(file);
-  });
+         resolve(users);
+       } catch (err) {
+         reject(err);
+       }
+     };
+     reader.onerror = reject;
+     reader.readAsArrayBuffer(file);
+   });
 }

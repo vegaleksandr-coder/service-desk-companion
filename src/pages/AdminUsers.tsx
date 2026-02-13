@@ -23,7 +23,7 @@ import {
 import {
   Search, MoreHorizontal, Pencil, Shield, CheckCircle,
   User as UserIcon, Loader2, Plus, FolderOpen, Trash2, KeyRound, Dices, Copy, UserCog,
-  Download, Upload,
+  Download, Upload, Eye, EyeOff, FileDown,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { UserRole, roleLabels } from "@/types/ticket";
@@ -33,7 +33,7 @@ import { ru } from "date-fns/locale";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { CategoryMembersForUserDialog } from "@/components/CategoryMembersForUserDialog";
-import { exportUsers } from "@/utils/excelExport";
+import { exportUsers, downloadImportTemplate } from "@/utils/excelExport";
 import { ImportUsersDialog } from "@/components/ImportUsersDialog";
 
 const roleColors: Record<UserRole, string> = {
@@ -70,6 +70,7 @@ export default function AdminUsers() {
   const [newName, setNewName] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newRole, setNewRole] = useState<UserRole>("user");
+  const [showPassword, setShowPassword] = useState(false);
   const [categoriesUser, setCategoriesUser] = useState<AdminUser | null>(null);
   const [editDialogUser, setEditDialogUser] = useState<AdminUser | null>(null);
   const [editName, setEditName] = useState("");
@@ -149,6 +150,7 @@ export default function AdminUsers() {
       setNewName("");
       setNewPassword("");
       setNewRole("user");
+      setShowPassword(false);
     } catch (error: any) {
       toast.error(error.message || "Ошибка при создании пользователя");
     }
@@ -269,19 +271,27 @@ export default function AdminUsers() {
             <div className="flex flex-col sm:flex-row gap-4 justify-between">
               <CardTitle>Пользователи</CardTitle>
               <div className="flex gap-2 flex-wrap">
-                <Button variant="outline" onClick={async () => {
-                  setExportingUsers(true);
-                  try { await exportUsers(); toast.success("Файл пользователей скачан"); }
-                  catch { toast.error("Ошибка экспорта"); }
-                  finally { setExportingUsers(false); }
-                }} disabled={exportingUsers}>
-                  {exportingUsers ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-                  Экспорт
-                </Button>
-                <Button variant="outline" onClick={() => setIsImportDialogOpen(true)}>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Импорт
-                </Button>
+                {isAdmin && (
+                  <>
+                    <Button variant="outline" onClick={async () => {
+                      setExportingUsers(true);
+                      try { await exportUsers(); toast.success("Файл пользователей скачан"); }
+                      catch { toast.error("Ошибка экспорта"); }
+                      finally { setExportingUsers(false); }
+                    }} disabled={exportingUsers}>
+                      {exportingUsers ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+                      Экспорт
+                    </Button>
+                    <Button variant="outline" onClick={() => downloadImportTemplate()}>
+                      <FileDown className="h-4 w-4 mr-2" />
+                      Шаблон
+                    </Button>
+                    <Button variant="outline" onClick={() => setIsImportDialogOpen(true)}>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Импорт
+                    </Button>
+                  </>
+                )}
                 <Button onClick={() => setIsAddDialogOpen(true)}>
                   <Plus className="h-4 w-4 mr-2" />
                   Добавить
@@ -453,12 +463,23 @@ export default function AdminUsers() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Пароль *</label>
               <div className="flex gap-2">
-                <Input
-                  type="text"
-                  placeholder="Минимум 8 символов"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                />
+                <div className="relative flex-1">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Минимум 6 символов"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowPassword(!showPassword)}
+                    title={showPassword ? "Скрыть пароль" : "Показать пароль"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
                 <Button
                   type="button"
                   variant="outline"
@@ -471,9 +492,9 @@ export default function AdminUsers() {
                     crypto.getRandomValues(arr);
                     let pwd = '';
                     for (const b of arr) pwd += chars[b % chars.length];
-                    // Ensure at least one uppercase, lowercase, digit
                     pwd = pwd.slice(0, 9) + 'A' + 'a' + '1';
                     setNewPassword(pwd);
+                    setShowPassword(true);
                     navigator.clipboard.writeText(pwd).then(() => toast.success("Пароль сгенерирован и скопирован"));
                   }}
                 >

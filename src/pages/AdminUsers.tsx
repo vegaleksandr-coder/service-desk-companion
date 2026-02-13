@@ -23,6 +23,7 @@ import {
 import {
   Search, MoreHorizontal, Pencil, Shield, CheckCircle,
   User as UserIcon, Loader2, Plus, FolderOpen, Trash2, KeyRound, Dices, Copy, UserCog,
+  Download, Upload,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { UserRole, roleLabels } from "@/types/ticket";
@@ -32,6 +33,8 @@ import { ru } from "date-fns/locale";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { CategoryMembersForUserDialog } from "@/components/CategoryMembersForUserDialog";
+import { exportUsers } from "@/utils/excelExport";
+import { ImportUsersDialog } from "@/components/ImportUsersDialog";
 
 const roleColors: Record<UserRole, string> = {
   admin: "bg-priority-critical/10 text-priority-critical border-priority-critical/20",
@@ -71,6 +74,8 @@ export default function AdminUsers() {
   const [editDialogUser, setEditDialogUser] = useState<AdminUser | null>(null);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [exportingUsers, setExportingUsers] = useState(false);
 
   const filteredUsers = (users || []).filter((user) => {
     const matchesSearch =
@@ -263,10 +268,25 @@ export default function AdminUsers() {
           <CardHeader className="pb-4">
             <div className="flex flex-col sm:flex-row gap-4 justify-between">
               <CardTitle>Пользователи</CardTitle>
-              <Button onClick={() => setIsAddDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Добавить пользователя
-              </Button>
+              <div className="flex gap-2 flex-wrap">
+                <Button variant="outline" onClick={async () => {
+                  setExportingUsers(true);
+                  try { await exportUsers(); toast.success("Файл пользователей скачан"); }
+                  catch { toast.error("Ошибка экспорта"); }
+                  finally { setExportingUsers(false); }
+                }} disabled={exportingUsers}>
+                  {exportingUsers ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+                  Экспорт
+                </Button>
+                <Button variant="outline" onClick={() => setIsImportDialogOpen(true)}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Импорт
+                </Button>
+                <Button onClick={() => setIsAddDialogOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Добавить
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -684,6 +704,13 @@ export default function AdminUsers() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Import Users Dialog */}
+      <ImportUsersDialog
+        open={isImportDialogOpen}
+        onOpenChange={setIsImportDialogOpen}
+        existingUsers={users || []}
+      />
     </Layout>
   );
 }

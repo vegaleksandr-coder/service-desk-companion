@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
+import { CompanySwitcher } from "@/components/CompanySwitcher";
 
 const mainNavItems = [
   { path: '/', icon: Home, label: 'Главная' },
@@ -113,6 +114,11 @@ export function DesktopSidebar() {
           <ChevronRight className="h-4 w-4" />
         </Button>
       )}
+
+      {/* Company switcher */}
+      <div className="px-3 pt-2">
+        <CompanySwitcher collapsed={collapsed} variant="sidebar" />
+      </div>
 
       {/* Navigation */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">

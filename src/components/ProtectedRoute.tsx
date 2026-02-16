@@ -11,7 +11,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, requiredRole, allowUserManagers }: ProtectedRouteProps) {
-  const { user, role, profile, isLoading } = useAuth();
+  const { user, role, profile, isLoading, companies, currentCompanyId } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -24,6 +24,10 @@ export function ProtectedRoute({ children, requiredRole, allowUserManagers }: Pr
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (!currentCompanyId && companies.length > 0) {
+    return <Navigate to="/select-company" replace />;
   }
 
   if (requiredRole) {

@@ -58,6 +58,7 @@ export type Database = {
       categories: {
         Row: {
           color: string | null
+          company_id: string | null
           created_at: string
           description: string | null
           icon: string | null
@@ -66,6 +67,7 @@ export type Database = {
         }
         Insert: {
           color?: string | null
+          company_id?: string | null
           created_at?: string
           description?: string | null
           icon?: string | null
@@ -74,13 +76,22 @@ export type Database = {
         }
         Update: {
           color?: string | null
+          company_id?: string | null
           created_at?: string
           description?: string | null
           icon?: string | null
           id?: string
           name?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "categories_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       category_members: {
         Row: {
@@ -149,10 +160,32 @@ export type Database = {
           },
         ]
       }
+      companies: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       faqs: {
         Row: {
           answer: string
           category_id: string | null
+          company_id: string | null
           created_at: string
           created_by: string
           id: string
@@ -163,6 +196,7 @@ export type Database = {
         Insert: {
           answer: string
           category_id?: string | null
+          company_id?: string | null
           created_at?: string
           created_by: string
           id?: string
@@ -173,6 +207,7 @@ export type Database = {
         Update: {
           answer?: string
           category_id?: string | null
+          company_id?: string | null
           created_at?: string
           created_by?: string
           id?: string
@@ -188,10 +223,18 @@ export type Database = {
             referencedRelation: "categories"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "faqs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
         ]
       }
       guides: {
         Row: {
+          company_id: string | null
           guide_key: string
           id: string
           sections: Json
@@ -201,6 +244,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          company_id?: string | null
           guide_key: string
           id?: string
           sections?: Json
@@ -210,6 +254,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          company_id?: string | null
           guide_key?: string
           id?: string
           sections?: Json
@@ -218,7 +263,15 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "guides_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
@@ -360,6 +413,7 @@ export type Database = {
         Row: {
           assignee_id: string | null
           category_id: string | null
+          company_id: string | null
           created_at: string
           created_by: string
           deadline: string | null
@@ -373,6 +427,7 @@ export type Database = {
         Insert: {
           assignee_id?: string | null
           category_id?: string | null
+          company_id?: string | null
           created_at?: string
           created_by: string
           deadline?: string | null
@@ -386,6 +441,7 @@ export type Database = {
         Update: {
           assignee_id?: string | null
           category_id?: string | null
+          company_id?: string | null
           created_at?: string
           created_by?: string
           deadline?: string | null
@@ -402,6 +458,45 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_companies: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_companies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -455,6 +550,18 @@ export type Database = {
       }
     }
     Functions: {
+      get_user_companies: {
+        Args: { _user_id: string }
+        Returns: {
+          company_id: string
+          company_name: string
+          role: Database["public"]["Enums"]["app_role"]
+        }[]
+      }
+      get_user_company_role: {
+        Args: { _company_id: string; _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -476,6 +583,14 @@ export type Database = {
       }
       is_category_member: {
         Args: { _category_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_company_admin: {
+        Args: { _company_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_company_member: {
+        Args: { _company_id: string; _user_id: string }
         Returns: boolean
       }
     }

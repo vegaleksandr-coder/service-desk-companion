@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface FAQ {
   id: string;
@@ -13,23 +14,28 @@ export interface FAQ {
 }
 
 export function useFaqs() {
+  const { currentCompanyId } = useAuth();
   return useQuery({
-    queryKey: ["faqs"],
+    queryKey: ["faqs", currentCompanyId],
     queryFn: async () => {
+      if (!currentCompanyId) return [];
       const { data, error } = await supabase
         .from("faqs")
         .select("*")
+        .eq("company_id", currentCompanyId)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true });
 
       if (error) throw error;
       return data as FAQ[];
     },
+    enabled: !!currentCompanyId,
   });
 }
 
 export function useCreateFaq() {
   const queryClient = useQueryClient();
+  const { currentCompanyId } = useAuth();
 
   return useMutation({
     mutationFn: async (data: {
@@ -39,9 +45,10 @@ export function useCreateFaq() {
       sort_order?: number;
       created_by: string;
     }) => {
+      if (!currentCompanyId) throw new Error("No company selected");
       const { data: faq, error } = await supabase
         .from("faqs")
-        .insert(data)
+        .insert({ ...data, company_id: currentCompanyId } as any)
         .select()
         .single();
 

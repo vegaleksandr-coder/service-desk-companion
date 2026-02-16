@@ -22,12 +22,12 @@ import {
 import { useNavigate } from "react-router-dom";
 
 function useExecutorTickets() {
-  const { user } = useAuth();
+  const { user, currentCompanyId } = useAuth();
 
   return useQuery({
-    queryKey: ["executor-tickets", user?.id],
+    queryKey: ["executor-tickets", user?.id, currentCompanyId],
     queryFn: async (): Promise<Ticket[]> => {
-      if (!user) return [];
+      if (!user || !currentCompanyId) return [];
 
       // Get categories where user is a member
       const { data: memberships } = await supabase
@@ -38,11 +38,12 @@ function useExecutorTickets() {
       const categoryIds = memberships?.map((m) => m.category_id) || [];
       if (categoryIds.length === 0) return [];
 
-      // Get tickets in those categories
+      // Get tickets in those categories for current company
       const { data: tickets, error } = await supabase
         .from("tickets")
         .select("*")
         .in("category_id", categoryIds)
+        .eq("company_id", currentCompanyId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;

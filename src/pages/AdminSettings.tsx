@@ -53,10 +53,12 @@ export default function AdminSettings() {
     toast.success("Настройки сохранены");
   };
 
+  const { currentCompanyId } = useAuth();
+
   const handleExportStats = async () => {
     setExportingStats(true);
     try {
-      await exportTicketStats(statsPeriod);
+      await exportTicketStats(statsPeriod, currentCompanyId || undefined);
       toast.success("Файл статистики скачан");
     } catch {
       toast.error("Ошибка при экспорте статистики");

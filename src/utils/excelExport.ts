@@ -30,10 +30,13 @@ export const periodLabels: Record<PeriodType, string> = {
 
 export type { PeriodType };
 
-export async function exportTicketStats(period: PeriodType) {
+export async function exportTicketStats(period: PeriodType, companyId?: string) {
   const startDate = getStartDate(period);
 
   let query = supabase.from("tickets").select("status, category_id, categories(name)");
+  if (companyId) {
+    query = query.eq("company_id", companyId);
+  }
   if (startDate) {
     query = query.gte("created_at", startDate.toISOString());
   }
@@ -41,14 +44,12 @@ export async function exportTicketStats(period: PeriodType) {
   const { data: tickets, error } = await query;
   if (error) throw error;
 
-  // Overall stats
   const statuses: Array<keyof typeof statusLabels> = ["new", "in_progress", "awaiting", "resolved", "closed"];
   const totalRow: Record<string, string | number> = { "Категория": "ИТОГО", "Всего": tickets.length };
   for (const s of statuses) {
     totalRow[statusLabels[s]] = tickets.filter((t) => t.status === s).length;
   }
 
-  // Group by category
   const categoryMap = new Map<string, { name: string; tickets: typeof tickets }>();
   for (const t of tickets) {
     const catId = t.category_id || "no_category";
@@ -75,7 +76,6 @@ export async function exportTicketStats(period: PeriodType) {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Статистика заявок");
 
-  // Auto-width
   const colWidths = Object.keys(rows[0]).map((key) => ({
     wch: Math.max(key.length, ...rows.map((r) => String(r[key]).length)) + 2,
   }));
@@ -84,42 +84,92 @@ export async function exportTicketStats(period: PeriodType) {
   XLSX.writeFile(wb, `Статистика_заявок_${periodLabels[period].replace(/\s/g, "_")}.xlsx`);
 }
 
-export async function exportUsers() {
-  const { data: profiles, error: pErr } = await supabase
-    .from("profiles")
-    .select("user_id, name, email, created_at")
-    .order("created_at", { ascending: false });
-  if (pErr) throw pErr;
+export async function exportUsers(companyId?: string) {
+  if (companyId) {
+    // Fetch users in this company
+    const { data: members, error: mErr } = await supabase
+      .from("user_companies" as any)
+      .select("user_id, role")
+      .eq("company_id", companyId);
+    if (mErr) throw mErr;
+    if (!members || members.length === 0) return;
 
-  const { data: roles, error: rErr } = await supabase.from("user_roles").select("user_id, role");
-  if (rErr) throw rErr;
+    const userIds = (members as any[]).map((m: any) => m.user_id);
+    const roleMap = new Map<string, string>();
+    (members as any[]).forEach((m: any) => roleMap.set(m.user_id, m.role));
 
-  const roleMap = new Map<string, string>();
-  for (const r of roles || []) roleMap.set(r.user_id, r.role);
+    const { data: profiles, error: pErr } = await supabase
+      .from("profiles")
+      .select("user_id, name, email, created_at")
+      .in("user_id", userIds)
+      .order("created_at", { ascending: false });
+    if (pErr) throw pErr;
 
-  const roleRu: Record<string, string> = {
-    admin: "Администратор",
-    executor: "Исполнитель",
-    user: "Пользователь",
-  };
+    const roleRu: Record<string, string> = {
+      admin: "Администратор",
+      executor: "Исполнитель",
+      user: "Пользователь",
+    };
 
-  const rows = (profiles || []).map((p) => ({
-    "Имя": p.name,
-    "Email": p.email,
-    "Роль": roleRu[roleMap.get(p.user_id) || "user"] || "Пользователь",
-    "Дата регистрации": new Date(p.created_at).toLocaleDateString("ru-RU"),
-  }));
+    const rows = (profiles || []).map((p) => ({
+      "Имя": p.name,
+      "Email": p.email,
+      "Роль": roleRu[roleMap.get(p.user_id) || "user"] || "Пользователь",
+      "Дата регистрации": new Date(p.created_at).toLocaleDateString("ru-RU"),
+    }));
 
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Пользователи");
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Пользователи");
 
-  const colWidths = Object.keys(rows[0] || {}).map((key) => ({
-    wch: Math.max(key.length, ...rows.map((r) => String((r as any)[key]).length)) + 2,
-  }));
-  ws["!cols"] = colWidths;
+    if (rows.length > 0) {
+      const colWidths = Object.keys(rows[0]).map((key) => ({
+        wch: Math.max(key.length, ...rows.map((r) => String((r as any)[key]).length)) + 2,
+      }));
+      ws["!cols"] = colWidths;
+    }
 
-  XLSX.writeFile(wb, "Пользователи.xlsx");
+    XLSX.writeFile(wb, "Пользователи.xlsx");
+  } else {
+    // Fallback: export all visible profiles
+    const { data: profiles, error: pErr } = await supabase
+      .from("profiles")
+      .select("user_id, name, email, created_at")
+      .order("created_at", { ascending: false });
+    if (pErr) throw pErr;
+
+    const { data: roles, error: rErr } = await supabase.from("user_roles").select("user_id, role");
+    if (rErr) throw rErr;
+
+    const roleMap = new Map<string, string>();
+    for (const r of roles || []) roleMap.set(r.user_id, r.role);
+
+    const roleRu: Record<string, string> = {
+      admin: "Администратор",
+      executor: "Исполнитель",
+      user: "Пользователь",
+    };
+
+    const rows = (profiles || []).map((p) => ({
+      "Имя": p.name,
+      "Email": p.email,
+      "Роль": roleRu[roleMap.get(p.user_id) || "user"] || "Пользователь",
+      "Дата регистрации": new Date(p.created_at).toLocaleDateString("ru-RU"),
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Пользователи");
+
+    if (rows.length > 0) {
+      const colWidths = Object.keys(rows[0]).map((key) => ({
+        wch: Math.max(key.length, ...rows.map((r) => String((r as any)[key]).length)) + 2,
+      }));
+      ws["!cols"] = colWidths;
+    }
+
+    XLSX.writeFile(wb, "Пользователи.xlsx");
+  }
 }
 
 export interface ImportUserRow {
@@ -135,13 +185,13 @@ export function downloadImportTemplate() {
       "Имя": "Иван Петров",
       "Email": "ivan.petrov@example.com",
       "Роль": "executor",
-      "Пароль": "SecurePass123!", // Optional - will be auto-generated if empty
+      "Пароль": "SecurePass123!",
     },
     {
       "Имя": "Мария Сидорова",
       "Email": "maria.sidorova@example.com",
       "Роль": "user",
-      "Пароль": "", // Leave empty for auto-generation
+      "Пароль": "",
     },
     {
       "Имя": "Петр Иванов",

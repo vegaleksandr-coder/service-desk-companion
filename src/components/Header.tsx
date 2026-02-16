@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { MobileMenuSheet } from "@/components/MobileMenuSheet";
+import { CompanySwitcher } from "@/components/CompanySwitcher";
 import { useState } from "react";
 
 interface HeaderProps {
@@ -24,6 +25,11 @@ export function Header({ title = "Журнал заявок", showSearch = true 
 
         {/* Title - visible on mobile */}
         <h1 className="text-lg font-semibold md:hidden">{title}</h1>
+
+        {/* Company switcher - desktop */}
+        <div className="hidden md:block">
+          <CompanySwitcher variant="header" />
+        </div>
 
         {/* Search - desktop */}
         {showSearch && (

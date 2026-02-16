@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface GuideSection {
   title: string;
@@ -17,12 +18,15 @@ export interface Guide {
 }
 
 export function useGuides() {
+  const { currentCompanyId } = useAuth();
   return useQuery({
-    queryKey: ["guides"],
+    queryKey: ["guides", currentCompanyId],
     queryFn: async () => {
+      if (!currentCompanyId) return [];
       const { data, error } = await supabase
         .from("guides")
         .select("*")
+        .eq("company_id", currentCompanyId)
         .order("sort_order");
       if (error) throw error;
       return (data as any[]).map((d) => ({
@@ -30,6 +34,7 @@ export function useGuides() {
         sections: (d.sections || []) as GuideSection[],
       })) as Guide[];
     },
+    enabled: !!currentCompanyId,
   });
 }
 

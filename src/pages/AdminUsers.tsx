@@ -49,7 +49,7 @@ const roleIcons: Record<UserRole, typeof Shield> = {
 };
 
 export default function AdminUsers() {
-  const { user: currentUser, role } = useAuth();
+  const { user: currentUser, role, currentCompanyId } = useAuth();
   const { data: users, isLoading } = useAdminUsers();
   const updateRole = useUpdateUserRole();
   const updateProfile = useUpdateUserProfile();
@@ -275,7 +275,7 @@ export default function AdminUsers() {
                   <>
                     <Button variant="outline" onClick={async () => {
                       setExportingUsers(true);
-                      try { await exportUsers(); toast.success("Файл пользователей скачан"); }
+                      try { await exportUsers(currentCompanyId || undefined); toast.success("Файл пользователей скачан"); }
                       catch { toast.error("Ошибка экспорта"); }
                       finally { setExportingUsers(false); }
                     }} disabled={exportingUsers}>

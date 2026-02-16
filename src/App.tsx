@@ -14,7 +14,7 @@ import TicketDetails from "./pages/TicketDetails";
 import Knowledge from "./pages/Knowledge";
 import Profile from "./pages/Profile";
 import Login from "./pages/Login";
-
+import CompanySelector from "./pages/CompanySelector";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import AdminUsers from "./pages/AdminUsers";
@@ -35,7 +35,7 @@ const App = () => (
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<Login />} />
-            
+            <Route path="/select-company" element={<CompanySelector />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             

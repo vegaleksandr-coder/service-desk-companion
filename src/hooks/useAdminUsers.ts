@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
@@ -15,26 +16,32 @@ export interface AdminUser {
 }
 
 export function useAdminUsers() {
+  const { currentCompanyId } = useAuth();
   return useQuery({
-    queryKey: ["admin-users"],
+    queryKey: ["admin-users", currentCompanyId],
     queryFn: async (): Promise<AdminUser[]> => {
+      if (!currentCompanyId) return [];
+
+      // Get members of current company
+      const { data: members, error: membersError } = await supabase
+        .from("user_companies" as any)
+        .select("user_id, role")
+        .eq("company_id", currentCompanyId);
+
+      if (membersError) throw membersError;
+      if (!members || members.length === 0) return [];
+
+      const userIds = (members as any[]).map((m: any) => m.user_id);
+      const roleMap = new Map<string, AppRole>();
+      (members as any[]).forEach((m: any) => roleMap.set(m.user_id, m.role));
+
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select("user_id, name, email, avatar_url, created_at, can_manage_users")
+        .in("user_id", userIds)
         .order("created_at", { ascending: false });
 
       if (profilesError) throw profilesError;
-
-      const { data: roles, error: rolesError } = await supabase
-        .from("user_roles")
-        .select("user_id, role");
-
-      if (rolesError) throw rolesError;
-
-      const roleMap = new Map<string, AppRole>();
-      for (const r of roles || []) {
-        roleMap.set(r.user_id, r.role);
-      }
 
       return (profiles || []).map((p) => ({
         user_id: p.user_id,
@@ -46,6 +53,7 @@ export function useAdminUsers() {
         created_at: p.created_at,
       }));
     },
+    enabled: !!currentCompanyId,
   });
 }
 
@@ -69,15 +77,23 @@ export function useUpdateUserProfile() {
 
 export function useUpdateUserRole() {
   const queryClient = useQueryClient();
+  const { currentCompanyId } = useAuth();
 
   return useMutation({
     mutationFn: async ({ userId, newRole }: { userId: string; newRole: AppRole }) => {
+      if (!currentCompanyId) throw new Error("No company selected");
+
+      // Update role in user_companies for current company
       const { error } = await supabase
-        .from("user_roles")
+        .from("user_companies" as any)
         .update({ role: newRole })
-        .eq("user_id", userId);
+        .eq("user_id", userId)
+        .eq("company_id", currentCompanyId);
 
       if (error) throw error;
+
+      // Also update user_roles for backward compat
+      await supabase.from("user_roles").update({ role: newRole }).eq("user_id", userId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
@@ -150,6 +166,7 @@ export function useDeleteUser() {
 
 export function useCreateUser() {
   const queryClient = useQueryClient();
+  const { currentCompanyId } = useAuth();
 
   return useMutation({
     mutationFn: async ({
@@ -175,7 +192,7 @@ export function useCreateUser() {
             Authorization: `Bearer ${token}`,
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
-          body: JSON.stringify({ email, password, name, role }),
+          body: JSON.stringify({ email, password, name, role, company_id: currentCompanyId }),
         }
       );
 

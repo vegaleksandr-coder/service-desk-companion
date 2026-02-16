@@ -15,16 +15,26 @@ interface Profile {
   updated_at: string;
 }
 
+export interface UserCompany {
+  company_id: string;
+  company_name: string;
+  role: AppRole;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
   role: AppRole | null;
+  companies: UserCompany[];
+  currentCompanyId: string | null;
+  currentCompanyName: string | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  setCurrentCompanyId: (id: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,8 +43,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [role, setRole] = useState<AppRole | null>(null);
+  const [companies, setCompanies] = useState<UserCompany[]>([]);
+  const [currentCompanyId, setCurrentCompanyIdState] = useState<string | null>(
+    localStorage.getItem("currentCompanyId")
+  );
   const [isLoading, setIsLoading] = useState(true);
+
+  const currentCompany = companies.find(c => c.company_id === currentCompanyId);
+  const role = currentCompany?.role || null;
+  const currentCompanyName = currentCompany?.company_name || null;
 
   const fetchProfile = async (userId: string) => {
     const { data: profileData } = await supabase
@@ -48,49 +65,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const fetchRole = async (userId: string) => {
-    const { data: roleData } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .single();
+  const fetchCompanies = async (userId: string) => {
+    const { data, error } = await (supabase.rpc as any)("get_user_companies", {
+      _user_id: userId,
+    });
     
-    if (roleData) {
-      setRole(roleData.role as AppRole);
+    if (!error && data) {
+      const userCompanies = (data as any[]).map((d: any) => ({
+        company_id: d.company_id,
+        company_name: d.company_name,
+        role: d.role as AppRole,
+      }));
+      setCompanies(userCompanies);
+      
+      const savedCompanyId = localStorage.getItem("currentCompanyId");
+      if (userCompanies.length === 1) {
+        setCurrentCompanyIdState(userCompanies[0].company_id);
+        localStorage.setItem("currentCompanyId", userCompanies[0].company_id);
+      } else if (savedCompanyId && userCompanies.some(c => c.company_id === savedCompanyId)) {
+        setCurrentCompanyIdState(savedCompanyId);
+      }
     }
   };
 
   const refreshProfile = async () => {
     if (user) {
-      await Promise.all([fetchProfile(user.id), fetchRole(user.id)]);
+      await Promise.all([fetchProfile(user.id), fetchCompanies(user.id)]);
     }
   };
 
+  const setCurrentCompanyId = (id: string) => {
+    setCurrentCompanyIdState(id);
+    localStorage.setItem("currentCompanyId", id);
+  };
+
   useEffect(() => {
-    // Set up auth state listener BEFORE checking session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         
         if (currentSession?.user) {
-          // Use setTimeout to avoid potential race conditions
           setTimeout(async () => {
             await Promise.all([
               fetchProfile(currentSession.user.id),
-              fetchRole(currentSession.user.id)
+              fetchCompanies(currentSession.user.id),
             ]);
             setIsLoading(false);
           }, 0);
         } else {
           setProfile(null);
-          setRole(null);
+          setCompanies([]);
+          setCurrentCompanyIdState(null);
+          localStorage.removeItem("currentCompanyId");
           setIsLoading(false);
         }
       }
     );
 
-    // Check for existing session
     supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
       if (!existingSession) {
         setIsLoading(false);
@@ -101,10 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error };
   };
 
@@ -125,7 +154,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSession(null);
     setProfile(null);
-    setRole(null);
+    setCompanies([]);
+    setCurrentCompanyIdState(null);
+    localStorage.removeItem("currentCompanyId");
   };
 
   return (
@@ -135,11 +166,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         profile,
         role,
+        companies,
+        currentCompanyId,
+        currentCompanyName,
         isLoading,
         signIn,
         signUp,
         signOut,
         refreshProfile,
+        setCurrentCompanyId,
       }}
     >
       {children}

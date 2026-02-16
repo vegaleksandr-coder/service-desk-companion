@@ -39,6 +39,7 @@ export interface Ticket {
   deadline: string | null;
   created_at: string;
   updated_at: string;
+  company_id?: string | null;
   category?: Category;
   creator?: TicketProfile;
   assignee?: TicketProfile;
@@ -55,34 +56,39 @@ export interface TicketStats {
 }
 
 export function useCategories() {
+  const { currentCompanyId } = useAuth();
   return useQuery({
-    queryKey: ["categories"],
+    queryKey: ["categories", currentCompanyId],
     queryFn: async () => {
+      if (!currentCompanyId) return [];
       const { data, error } = await supabase
         .from("categories")
         .select("*")
+        .eq("company_id", currentCompanyId)
         .order("name");
 
       if (error) throw error;
       return data as Category[];
     },
+    enabled: !!currentCompanyId,
   });
 }
 
 export function useTickets() {
+  const { currentCompanyId } = useAuth();
   return useQuery({
-    queryKey: ["tickets"],
+    queryKey: ["tickets", currentCompanyId],
     queryFn: async () => {
+      if (!currentCompanyId) return [];
       const { data: tickets, error: ticketsError } = await supabase
         .from("tickets")
         .select("*")
+        .eq("company_id", currentCompanyId)
         .order("created_at", { ascending: false });
 
       if (ticketsError) throw ticketsError;
-
       if (!tickets || tickets.length === 0) return [];
 
-      // Get all unique user IDs
       const userIds = new Set<string>();
       const categoryIds = new Set<string>();
       
@@ -92,7 +98,6 @@ export function useTickets() {
         if (ticket.category_id) categoryIds.add(ticket.category_id);
       });
 
-      // Fetch profiles via public view (no email exposed)
       const { data: profilesWithUserId } = await supabase
         .from("profiles_public" as any)
         .select("id, user_id, name, avatar_url")
@@ -106,7 +111,7 @@ export function useTickets() {
           avatar_url: p.avatar_url,
         });
       });
-      // Fetch categories
+
       const { data: categories } = await supabase
         .from("categories")
         .select("*")
@@ -123,6 +128,7 @@ export function useTickets() {
         assignee: ticket.assignee_id ? profileByUserId.get(ticket.assignee_id) : undefined,
       })) as Ticket[];
     },
+    enabled: !!currentCompanyId,
   });
 }
 
@@ -138,7 +144,6 @@ export function useTicket(id: string) {
 
       if (error) throw error;
 
-      // Fetch related data
       const userIds = new Set<string>([ticket.created_by]);
       if (ticket.assignee_id) userIds.add(ticket.assignee_id);
 
@@ -166,14 +171,12 @@ export function useTicket(id: string) {
         category = cat as Category;
       }
 
-      // Fetch comments
       const { data: comments } = await supabase
         .from("comments")
         .select("*")
         .eq("ticket_id", id)
         .order("created_at", { ascending: true });
 
-      // Get comment user profiles
       const commentUserIds = new Set<string>();
       comments?.forEach((c) => commentUserIds.add(c.user_id));
 
@@ -225,7 +228,7 @@ export function useTicketStats() {
 
 export function useCreateTicket() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, currentCompanyId } = useAuth();
 
   return useMutation({
     mutationFn: async (data: {
@@ -236,13 +239,15 @@ export function useCreateTicket() {
       deadline?: string | null;
     }) => {
       if (!user) throw new Error("User not authenticated");
+      if (!currentCompanyId) throw new Error("No company selected");
 
       const { data: ticket, error } = await supabase
         .from("tickets")
         .insert({
           ...data,
           created_by: user.id,
-        })
+          company_id: currentCompanyId,
+        } as any)
         .select()
         .single();
 
@@ -345,7 +350,6 @@ export function useTicketHistory(ticketId: string) {
       if (error) throw error;
       if (!history || history.length === 0) return [];
 
-      // Get user profiles
       const userIds = new Set<string>();
       history.forEach((h) => userIds.add(h.user_id));
 
@@ -439,12 +443,14 @@ export function useDeleteTicket() {
 
 export function useCreateCategory() {
   const queryClient = useQueryClient();
+  const { currentCompanyId } = useAuth();
 
   return useMutation({
     mutationFn: async (data: { name: string; description?: string | null; icon?: string | null; color?: string | null }) => {
+      if (!currentCompanyId) throw new Error("No company selected");
       const { data: cat, error } = await supabase
         .from("categories")
-        .insert(data)
+        .insert({ ...data, company_id: currentCompanyId } as any)
         .select()
         .single();
       if (error) throw error;

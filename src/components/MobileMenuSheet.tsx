@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { CompanySwitcher } from "@/components/CompanySwitcher";
 import {
   Sheet,
   SheetContent,
@@ -88,6 +89,10 @@ export function MobileMenuSheet({ open, onOpenChange }: MobileMenuSheetProps) {
             ServiceDesk
           </SheetTitle>
         </SheetHeader>
+
+        <div className="px-3 pt-2">
+          <CompanySwitcher variant="mobile" />
+        </div>
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           <span className="text-xs font-medium text-muted-foreground px-3 uppercase tracking-wider">

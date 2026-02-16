@@ -11,7 +11,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Verify the caller is an admin
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -23,7 +22,6 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Create client with caller's token to check role
     const callerClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -36,19 +34,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check admin role using service role client
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
-    const { data: roleData } = await adminClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", caller.id)
-      .single();
 
-    const isAdmin = roleData?.role === "admin";
+    // Check caller permissions: admin in any company OR can_manage_users
+    const { data: callerCompanies } = await adminClient
+      .from("user_companies")
+      .select("company_id, role")
+      .eq("user_id", caller.id);
 
-    // Check can_manage_users flag if not admin
+    const isAdminInAnyCompany = callerCompanies?.some((c: any) => c.role === "admin");
+
     let canManageUsers = false;
-    if (!isAdmin) {
+    if (!isAdminInAnyCompany) {
       const { data: profileData } = await adminClient
         .from("profiles")
         .select("can_manage_users")
@@ -57,18 +54,23 @@ Deno.serve(async (req) => {
       canManageUsers = profileData?.can_manage_users === true;
     }
 
-    if (!isAdmin && !canManageUsers) {
+    if (!isAdminInAnyCompany && !canManageUsers) {
       return new Response(JSON.stringify({ error: "Forbidden: insufficient permissions" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { email, password, name, role } = await req.json();
+    const { email, password, name, role, company_id } = await req.json();
 
-    // Non-admin user managers can only create user/executor roles
-    if (!isAdmin && role === "admin") {
-      return new Response(JSON.stringify({ error: "Only admins can create admin users" }), {
+    // Check if caller is admin of the target company
+    const isAdminOfTargetCompany = company_id && callerCompanies?.some(
+      (c: any) => c.company_id === company_id && c.role === "admin"
+    );
+
+    // Non-admin callers can only create user/executor roles
+    if (!isAdminOfTargetCompany && role === "admin") {
+      return new Response(JSON.stringify({ error: "Only company admins can create admin users" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -110,12 +112,23 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Update role if not default 'user'
+    // Update global role if not default 'user'
     if (role && role !== "user" && newUser.user) {
       await adminClient
         .from("user_roles")
         .update({ role })
         .eq("user_id", newUser.user.id);
+    }
+
+    // Add user to company if company_id provided
+    if (company_id && newUser.user) {
+      await adminClient
+        .from("user_companies")
+        .insert({
+          user_id: newUser.user.id,
+          company_id: company_id,
+          role: role || "user",
+        });
     }
 
     return new Response(

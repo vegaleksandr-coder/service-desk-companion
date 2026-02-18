@@ -26,6 +26,7 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   role: AppRole | null;
+  isGlobalAdmin: boolean;
   companies: UserCompany[];
   currentCompanyId: string | null;
   currentCompanyName: string | null;
@@ -44,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [companies, setCompanies] = useState<UserCompany[]>([]);
+  const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
   const [currentCompanyId, setCurrentCompanyIdState] = useState<string | null>(
     localStorage.getItem("currentCompanyId")
   );
@@ -63,6 +65,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (profileData) {
       setProfile(profileData as Profile);
     }
+  };
+
+  const fetchGlobalRole = async (userId: string) => {
+    const { data } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .single();
+    setIsGlobalAdmin(data?.role === "admin");
   };
 
   const fetchCompanies = async (userId: string) => {
@@ -90,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = async () => {
     if (user) {
-      await Promise.all([fetchProfile(user.id), fetchCompanies(user.id)]);
+      await Promise.all([fetchProfile(user.id), fetchCompanies(user.id), fetchGlobalRole(user.id)]);
     }
   };
 
@@ -110,12 +121,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             await Promise.all([
               fetchProfile(currentSession.user.id),
               fetchCompanies(currentSession.user.id),
+              fetchGlobalRole(currentSession.user.id),
             ]);
             setIsLoading(false);
           }, 0);
         } else {
           setProfile(null);
           setCompanies([]);
+          setIsGlobalAdmin(false);
           setCurrentCompanyIdState(null);
           localStorage.removeItem("currentCompanyId");
           setIsLoading(false);
@@ -155,6 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setProfile(null);
     setCompanies([]);
+    setIsGlobalAdmin(false);
     setCurrentCompanyIdState(null);
     localStorage.removeItem("currentCompanyId");
   };
@@ -166,6 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         profile,
         role,
+        isGlobalAdmin,
         companies,
         currentCompanyId,
         currentCompanyName,

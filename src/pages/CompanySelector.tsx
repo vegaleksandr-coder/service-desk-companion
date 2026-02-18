@@ -1,8 +1,20 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
-import { Building2, Loader2, Shield, CheckCircle, User as UserIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Building2, Loader2, Shield, CheckCircle, User as UserIcon, Plus, LogOut } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 const roleLabels: Record<string, string> = {
   admin: "Администратор",
@@ -17,8 +29,11 @@ const roleIcons: Record<string, typeof Shield> = {
 };
 
 export default function CompanySelector() {
-  const { companies, setCurrentCompanyId, isLoading, user } = useAuth();
+  const { companies, setCurrentCompanyId, isLoading, user, isGlobalAdmin, refreshProfile, signOut } = useAuth();
   const navigate = useNavigate();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [companyName, setCompanyName] = useState("");
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     if (!isLoading && companies.length === 1) {
@@ -35,13 +50,17 @@ export default function CompanySelector() {
     );
   }
 
-  if (companies.length === 0) {
+  if (companies.length === 0 && !isGlobalAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="text-center space-y-4">
           <Building2 className="h-12 w-12 mx-auto text-muted-foreground" />
           <h1 className="text-xl font-bold">Нет доступных компаний</h1>
           <p className="text-muted-foreground">Обратитесь к администратору для получения доступа</p>
+          <Button variant="outline" onClick={() => signOut()}>
+            <LogOut className="h-4 w-4 mr-2" />
+            Выйти
+          </Button>
         </div>
       </div>
     );
@@ -50,6 +69,28 @@ export default function CompanySelector() {
   const handleSelect = (companyId: string) => {
     setCurrentCompanyId(companyId);
     navigate("/", { replace: true });
+  };
+
+  const handleCreateCompany = async () => {
+    if (!companyName.trim()) return;
+    setCreating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-company", {
+        body: { name: companyName.trim() },
+      });
+      if (error || data?.error) {
+        toast({ title: "Ошибка", description: data?.error || "Не удалось создать компанию", variant: "destructive" });
+      } else {
+        toast({ title: "Компания создана" });
+        setDialogOpen(false);
+        setCompanyName("");
+        await refreshProfile();
+      }
+    } catch {
+      toast({ title: "Ошибка", description: "Не удалось создать компанию", variant: "destructive" });
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
@@ -86,8 +127,55 @@ export default function CompanySelector() {
               </Card>
             );
           })}
+
+          {isGlobalAdmin && (
+            <Button
+              variant="outline"
+              className="w-full h-14 border-dashed"
+              onClick={() => setDialogOpen(true)}
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Создать компанию
+            </Button>
+          )}
+        </div>
+
+        <div className="text-center">
+          <Button variant="ghost" size="sm" onClick={() => signOut()}>
+            <LogOut className="h-4 w-4 mr-2" />
+            Выйти
+          </Button>
         </div>
       </div>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Создать компанию</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="company-name">Название компании</Label>
+              <Input
+                id="company-name"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                placeholder="Введите название"
+                onKeyDown={(e) => e.key === "Enter" && handleCreateCompany()}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              Отмена
+            </Button>
+            <Button onClick={handleCreateCompany} disabled={creating || !companyName.trim()}>
+              {creating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Создать
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

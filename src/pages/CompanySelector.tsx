@@ -36,11 +36,11 @@ export default function CompanySelector() {
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && companies.length === 1) {
+    if (!isLoading && companies.length === 1 && !isGlobalAdmin) {
       setCurrentCompanyId(companies[0].company_id);
       navigate("/", { replace: true });
     }
-  }, [companies, isLoading]);
+  }, [companies, isLoading, isGlobalAdmin]);
 
   if (isLoading || !user) {
     return (

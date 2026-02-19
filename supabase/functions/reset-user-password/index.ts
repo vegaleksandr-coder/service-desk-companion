@@ -35,16 +35,27 @@ Deno.serve(async (req) => {
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    
+    // Check permissions: global admin, company admin, or can_manage_users
     const { data: roleData } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", caller.id)
       .single();
 
-    const isAdmin = roleData?.role === "admin";
+    const isGlobalAdmin = roleData?.role === "admin";
+
+    let isCompanyAdmin = false;
+    if (!isGlobalAdmin) {
+      const { data: callerCompanies } = await adminClient
+        .from("user_companies")
+        .select("company_id, role")
+        .eq("user_id", caller.id);
+      isCompanyAdmin = callerCompanies?.some((c: any) => c.role === "admin") ?? false;
+    }
 
     let canManageUsers = false;
-    if (!isAdmin) {
+    if (!isGlobalAdmin && !isCompanyAdmin) {
       const { data: profileData } = await adminClient
         .from("profiles")
         .select("can_manage_users")
@@ -53,7 +64,7 @@ Deno.serve(async (req) => {
       canManageUsers = profileData?.can_manage_users === true;
     }
 
-    if (!isAdmin && !canManageUsers) {
+    if (!isGlobalAdmin && !isCompanyAdmin && !canManageUsers) {
       return new Response(JSON.stringify({ error: "Forbidden: insufficient permissions" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

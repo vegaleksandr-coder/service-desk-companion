@@ -2,12 +2,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
@@ -35,14 +35,35 @@ Deno.serve(async (req) => {
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+    // Check caller permissions: global admin OR company admin
     const { data: roleData } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", caller.id)
       .single();
 
-    if (!roleData || roleData.role !== "admin") {
-      return new Response(JSON.stringify({ error: "Forbidden: admin only" }), {
+    const isGlobalAdmin = roleData?.role === "admin";
+
+    const { data: callerCompanies } = await adminClient
+      .from("user_companies")
+      .select("company_id, role")
+      .eq("user_id", caller.id);
+
+    const isCompanyAdmin = callerCompanies?.some((c: any) => c.role === "admin");
+
+    let canManageUsers = false;
+    if (!isGlobalAdmin && !isCompanyAdmin) {
+      const { data: profileData } = await adminClient
+        .from("profiles")
+        .select("can_manage_users")
+        .eq("user_id", caller.id)
+        .single();
+      canManageUsers = profileData?.can_manage_users === true;
+    }
+
+    if (!isGlobalAdmin && !isCompanyAdmin && !canManageUsers) {
+      return new Response(JSON.stringify({ error: "Forbidden: insufficient permissions" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -66,6 +87,7 @@ Deno.serve(async (req) => {
 
     // Delete related data first
     await adminClient.from("category_members").delete().eq("user_id", userId);
+    await adminClient.from("user_companies").delete().eq("user_id", userId);
     await adminClient.from("user_roles").delete().eq("user_id", userId);
     await adminClient.from("profiles").delete().eq("user_id", userId);
 

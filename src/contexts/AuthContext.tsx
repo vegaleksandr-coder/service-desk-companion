@@ -67,16 +67,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const fetchGlobalRole = async (userId: string) => {
+  const fetchGlobalRole = async (userId: string): Promise<boolean> => {
     const { data } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", userId)
       .single();
-    setIsGlobalAdmin(data?.role === "admin");
+    const isAdmin = data?.role === "admin";
+    setIsGlobalAdmin(isAdmin);
+    return isAdmin;
   };
 
-  const fetchCompanies = async (userId: string) => {
+  const fetchCompanies = async (userId: string): Promise<UserCompany[]> => {
     const { data, error } = await (supabase.rpc as any)("get_user_companies", {
       _user_id: userId,
     });
@@ -88,20 +90,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: d.role as AppRole,
       }));
       setCompanies(userCompanies);
-      
-      const savedCompanyId = localStorage.getItem("currentCompanyId");
-      if (userCompanies.length === 1) {
-        setCurrentCompanyIdState(userCompanies[0].company_id);
-        localStorage.setItem("currentCompanyId", userCompanies[0].company_id);
-      } else if (savedCompanyId && userCompanies.some(c => c.company_id === savedCompanyId)) {
-        setCurrentCompanyIdState(savedCompanyId);
-      }
+      return userCompanies;
+    }
+    return [];
+  };
+
+  const autoSelectCompany = (userCompanies: UserCompany[], isAdmin: boolean) => {
+    const savedCompanyId = localStorage.getItem("currentCompanyId");
+    if (userCompanies.length === 1 && !isAdmin) {
+      setCurrentCompanyIdState(userCompanies[0].company_id);
+      localStorage.setItem("currentCompanyId", userCompanies[0].company_id);
+    } else if (savedCompanyId && userCompanies.some(c => c.company_id === savedCompanyId)) {
+      setCurrentCompanyIdState(savedCompanyId);
     }
   };
 
   const refreshProfile = async () => {
     if (user) {
-      await Promise.all([fetchProfile(user.id), fetchCompanies(user.id), fetchGlobalRole(user.id)]);
+      const [, userCompanies, isAdmin] = await Promise.all([
+        fetchProfile(user.id),
+        fetchCompanies(user.id),
+        fetchGlobalRole(user.id),
+      ]);
+      autoSelectCompany(userCompanies, isAdmin);
     }
   };
 
@@ -118,11 +129,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (currentSession?.user) {
           setTimeout(async () => {
-            await Promise.all([
+            const [, userCompanies, isAdmin] = await Promise.all([
               fetchProfile(currentSession.user.id),
               fetchCompanies(currentSession.user.id),
               fetchGlobalRole(currentSession.user.id),
             ]);
+            autoSelectCompany(userCompanies, isAdmin);
             setIsLoading(false);
           }, 0);
         } else {

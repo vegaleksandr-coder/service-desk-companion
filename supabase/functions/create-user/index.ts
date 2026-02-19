@@ -105,34 +105,77 @@ Deno.serve(async (req) => {
       user_metadata: { name },
     });
 
+    let userId: string | undefined;
+
     if (createError) {
-      return new Response(JSON.stringify({ error: createError.message }), {
+      // If user already exists, try to find them and add to company
+      if (createError.message?.includes("already been registered") || createError.message?.includes("already exists")) {
+        const { data: existingUsers } = await adminClient.auth.admin.listUsers();
+        const existingUser = existingUsers?.users?.find((u: any) => u.email === email);
+        
+        if (!existingUser) {
+          return new Response(JSON.stringify({ error: "Пользователь существует, но не найден" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        userId = existingUser.id;
+
+        // Check if already in this company
+        if (company_id) {
+          const { data: existing } = await adminClient
+            .from("user_companies")
+            .select("id")
+            .eq("user_id", userId)
+            .eq("company_id", company_id)
+            .maybeSingle();
+
+          if (existing) {
+            return new Response(JSON.stringify({ error: "Пользователь уже состоит в этой компании" }), {
+              status: 400,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        }
+      } else {
+        return new Response(JSON.stringify({ error: createError.message }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    } else {
+      userId = newUser.user?.id;
+    }
+
+    if (!userId) {
+      return new Response(JSON.stringify({ error: "Не удалось определить пользователя" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Update global role if not default 'user'
-    if (role && role !== "user" && newUser.user) {
+    // Update global role if not default 'user' (only for new users)
+    if (!createError && role && role !== "user") {
       await adminClient
         .from("user_roles")
         .update({ role })
-        .eq("user_id", newUser.user.id);
+        .eq("user_id", userId);
     }
 
     // Add user to company if company_id provided
-    if (company_id && newUser.user) {
+    if (company_id) {
       await adminClient
         .from("user_companies")
         .insert({
-          user_id: newUser.user.id,
+          user_id: userId,
           company_id: company_id,
           role: role || "user",
         });
     }
 
     return new Response(
-      JSON.stringify({ user: { id: newUser.user?.id, email } }),
+      JSON.stringify({ user: { id: userId, email } }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

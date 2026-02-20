@@ -20,3 +20,9 @@ verify_jwt = false
 
 [functions.notify-status-change]
 verify_jwt = false
+
+[functions.update-company]
+verify_jwt = false
+
+[functions.delete-company]
+verify_jwt = false

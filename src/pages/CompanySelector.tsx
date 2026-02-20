@@ -12,7 +12,17 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Building2, Loader2, Shield, CheckCircle, User as UserIcon, Plus, LogOut } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Building2, Loader2, Shield, CheckCircle, User as UserIcon, Plus, LogOut, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
@@ -34,6 +44,18 @@ export default function CompanySelector() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [companyName, setCompanyName] = useState("");
   const [creating, setCreating] = useState(false);
+
+  // Edit state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editCompanyId, setEditCompanyId] = useState<string | null>(null);
+  const [editCompanyName, setEditCompanyName] = useState("");
+  const [updating, setUpdating] = useState(false);
+
+  // Delete state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteCompanyId, setDeleteCompanyId] = useState<string | null>(null);
+  const [deleteCompanyNameLabel, setDeleteCompanyNameLabel] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!isLoading && companies.length === 1 && !isGlobalAdmin) {
@@ -93,6 +115,48 @@ export default function CompanySelector() {
     }
   };
 
+  const handleEditCompany = async () => {
+    if (!editCompanyId || !editCompanyName.trim()) return;
+    setUpdating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("update-company", {
+        body: { id: editCompanyId, name: editCompanyName.trim() },
+      });
+      if (error || data?.error) {
+        toast({ title: "Ошибка", description: data?.error || "Не удалось обновить компанию", variant: "destructive" });
+      } else {
+        toast({ title: "Компания обновлена" });
+        setEditDialogOpen(false);
+        await refreshProfile();
+      }
+    } catch {
+      toast({ title: "Ошибка", description: "Не удалось обновить компанию", variant: "destructive" });
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleDeleteCompany = async () => {
+    if (!deleteCompanyId) return;
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-company", {
+        body: { id: deleteCompanyId },
+      });
+      if (error || data?.error) {
+        toast({ title: "Ошибка", description: data?.error || "Не удалось удалить компанию", variant: "destructive" });
+      } else {
+        toast({ title: "Компания удалена" });
+        setDeleteDialogOpen(false);
+        await refreshProfile();
+      }
+    } catch {
+      toast({ title: "Ошибка", description: "Не удалось удалить компанию", variant: "destructive" });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-6">
@@ -109,7 +173,7 @@ export default function CompanySelector() {
             return (
               <Card
                 key={company.company_id}
-                className="cursor-pointer hover:border-primary transition-colors"
+                className="cursor-pointer hover:border-primary transition-colors group relative"
                 onClick={() => handleSelect(company.company_id)}
               >
                 <CardContent className="p-4 flex items-center gap-4">
@@ -123,6 +187,36 @@ export default function CompanySelector() {
                       {roleLabels[company.role] || company.role}
                     </p>
                   </div>
+                  {isGlobalAdmin && (
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditCompanyId(company.company_id);
+                          setEditCompanyName(company.company_name);
+                          setEditDialogOpen(true);
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteCompanyId(company.company_id);
+                          setDeleteCompanyNameLabel(company.company_name);
+                          setDeleteDialogOpen(true);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -148,6 +242,7 @@ export default function CompanySelector() {
         </div>
       </div>
 
+      {/* Create Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -176,6 +271,59 @@ export default function CompanySelector() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Редактировать компанию</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-company-name">Название компании</Label>
+              <Input
+                id="edit-company-name"
+                value={editCompanyName}
+                onChange={(e) => setEditCompanyName(e.target.value)}
+                placeholder="Введите название"
+                onKeyDown={(e) => e.key === "Enter" && handleEditCompany()}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Отмена
+            </Button>
+            <Button onClick={handleEditCompany} disabled={updating || !editCompanyName.trim()}>
+              {updating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Сохранить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить компанию «{deleteCompanyNameLabel}»?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Будут удалены все данные компании: заявки, категории, FAQ, инструкции и привязки пользователей. Это действие нельзя отменить.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Отмена</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteCompany}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

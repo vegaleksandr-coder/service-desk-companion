@@ -11,7 +11,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, requiredRole, allowUserManagers }: ProtectedRouteProps) {
-  const { user, role, profile, isLoading, companies, currentCompanyId } = useAuth();
+  const { user, role, profile, isLoading, isGlobalAdmin, companies, currentCompanyId } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -34,7 +34,7 @@ export function ProtectedRoute({ children, requiredRole, allowUserManagers }: Pr
     const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
     const hasRole = role && roles.includes(role);
     const isUserManager = allowUserManagers && profile?.can_manage_users;
-    if (!hasRole && !isUserManager) {
+    if (!hasRole && !isUserManager && !isGlobalAdmin) {
       return <Navigate to="/" replace />;
     }
   }

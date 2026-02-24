@@ -9,7 +9,8 @@ import {
   BarChart3,
   LogOut,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Building2
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -42,7 +43,7 @@ export function DesktopSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
-  const { profile, role, signOut } = useAuth();
+  const { profile, role, isGlobalAdmin, signOut } = useAuth();
 
   const handleSignOut = async () => {
     await signOut();
@@ -151,7 +152,7 @@ export function DesktopSidebar() {
         </div>
 
         {/* Admin navigation */}
-        {(role === 'admin' || profile?.can_manage_users) && (
+        {(role === 'admin' || isGlobalAdmin || profile?.can_manage_users) && (
           <>
             <Separator className="my-4 bg-sidebar-border" />
             <div className="space-y-1">
@@ -160,10 +161,15 @@ export function DesktopSidebar() {
                   Администрирование
                 </span>
               )}
-              {role === 'admin' ? (
-                adminNavItems.map((item) => (
-                  <NavLink key={item.path} {...item} />
-                ))
+              {(role === 'admin' || isGlobalAdmin) ? (
+                <>
+                  {adminNavItems.map((item) => (
+                    <NavLink key={item.path} {...item} />
+                  ))}
+                  {isGlobalAdmin && (
+                    <NavLink path="/admin/companies" icon={Building2} label="Компании" />
+                  )}
+                </>
               ) : (
                 <NavLink path="/admin/users" icon={Users} label="Пользователи" />
               )}

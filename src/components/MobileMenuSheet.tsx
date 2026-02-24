@@ -7,7 +7,8 @@ import {
   Settings,
   Users,
   BarChart3,
-  LogOut
+  LogOut,
+  Building2
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -49,7 +50,7 @@ interface MobileMenuSheetProps {
 export function MobileMenuSheet({ open, onOpenChange }: MobileMenuSheetProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { profile, role, signOut } = useAuth();
+  const { profile, role, isGlobalAdmin, signOut } = useAuth();
 
   const handleSignOut = async () => {
     await signOut();
@@ -113,16 +114,21 @@ export function MobileMenuSheet({ open, onOpenChange }: MobileMenuSheetProps) {
               <NavLink key={item.path} {...item} />
             ))}
 
-          {(role === 'admin' || profile?.can_manage_users) && (
+          {(role === 'admin' || isGlobalAdmin || profile?.can_manage_users) && (
             <>
               <Separator className="my-4" />
               <span className="text-xs font-medium text-muted-foreground px-3 uppercase tracking-wider">
                 Администрирование
               </span>
-              {role === 'admin' ? (
-                adminNavItems.map((item) => (
-                  <NavLink key={item.path} {...item} />
-                ))
+              {(role === 'admin' || isGlobalAdmin) ? (
+                <>
+                  {adminNavItems.map((item) => (
+                    <NavLink key={item.path} {...item} />
+                  ))}
+                  {isGlobalAdmin && (
+                    <NavLink path="/admin/companies" icon={Building2} label="Компании" />
+                  )}
+                </>
               ) : (
                 <NavLink path="/admin/users" icon={Users} label="Пользователи" />
               )}

@@ -43,7 +43,7 @@ export function DesktopSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
-  const { profile, role, isGlobalAdmin, signOut } = useAuth();
+  const { profile, role, isGlobalAdmin, isChiefAdmin, signOut } = useAuth();
 
   const handleSignOut = async () => {
     await signOut();
@@ -152,7 +152,7 @@ export function DesktopSidebar() {
         </div>
 
         {/* Admin navigation */}
-        {(role === 'admin' || isGlobalAdmin || profile?.can_manage_users) && (
+        {(role === 'admin' || isGlobalAdmin || isChiefAdmin || profile?.can_manage_users) && (
           <>
             <Separator className="my-4 bg-sidebar-border" />
             <div className="space-y-1">
@@ -161,12 +161,12 @@ export function DesktopSidebar() {
                   Администрирование
                 </span>
               )}
-              {(role === 'admin' || isGlobalAdmin) ? (
+              {(role === 'admin' || isGlobalAdmin || isChiefAdmin) ? (
                 <>
                   {adminNavItems.map((item) => (
                     <NavLink key={item.path} {...item} />
                   ))}
-                  {isGlobalAdmin && (
+                  {(isGlobalAdmin || isChiefAdmin) && (
                     <NavLink path="/admin/companies" icon={Building2} label="Компании" />
                   )}
                 </>

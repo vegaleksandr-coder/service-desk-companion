@@ -36,13 +36,17 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
+    // Check global role
     const { data: roleData } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", caller.id)
       .single();
 
-    if (!roleData || roleData.role !== "admin") {
+    const isGlobalAdmin = roleData?.role === "admin";
+    const isChiefAdmin = roleData?.role === "chief_admin";
+
+    if (!isGlobalAdmin && !isChiefAdmin) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -55,6 +59,24 @@ Deno.serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Chief admin can only update their own company
+    if (isChiefAdmin) {
+      const { data: membership } = await adminClient
+        .from("user_companies")
+        .select("id")
+        .eq("user_id", caller.id)
+        .eq("company_id", id)
+        .eq("role", "admin")
+        .maybeSingle();
+
+      if (!membership) {
+        return new Response(JSON.stringify({ error: "Вы можете редактировать только свою компанию" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     const { data: company, error } = await adminClient

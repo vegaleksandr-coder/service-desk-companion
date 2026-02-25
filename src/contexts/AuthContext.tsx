@@ -27,6 +27,7 @@ interface AuthContextType {
   profile: Profile | null;
   role: AppRole | null;
   isGlobalAdmin: boolean;
+  isChiefAdmin: boolean;
   companies: UserCompany[];
   currentCompanyId: string | null;
   currentCompanyName: string | null;
@@ -46,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [companies, setCompanies] = useState<UserCompany[]>([]);
   const [isGlobalAdmin, setIsGlobalAdmin] = useState(false);
+  const [isChiefAdmin, setIsChiefAdmin] = useState(false);
   const [currentCompanyId, setCurrentCompanyIdState] = useState<string | null>(
     localStorage.getItem("currentCompanyId")
   );
@@ -67,15 +69,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const fetchGlobalRole = async (userId: string): Promise<boolean> => {
+  const fetchGlobalRole = async (userId: string): Promise<{ isAdmin: boolean; isChief: boolean }> => {
     const { data } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", userId)
       .single();
     const isAdmin = data?.role === "admin";
+    const isChief = data?.role === "chief_admin";
     setIsGlobalAdmin(isAdmin);
-    return isAdmin;
+    setIsChiefAdmin(isChief);
+    return { isAdmin, isChief };
   };
 
   const fetchCompanies = async (userId: string): Promise<UserCompany[]> => {
@@ -95,9 +99,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return [];
   };
 
-  const autoSelectCompany = (userCompanies: UserCompany[], isAdmin: boolean) => {
+  const autoSelectCompany = (userCompanies: UserCompany[], globalRole: { isAdmin: boolean; isChief: boolean }) => {
     const savedCompanyId = localStorage.getItem("currentCompanyId");
-    if (userCompanies.length === 1 && !isAdmin) {
+    if (userCompanies.length === 1 && !globalRole.isAdmin) {
       setCurrentCompanyIdState(userCompanies[0].company_id);
       localStorage.setItem("currentCompanyId", userCompanies[0].company_id);
     } else if (savedCompanyId && userCompanies.some(c => c.company_id === savedCompanyId)) {
@@ -107,12 +111,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = async () => {
     if (user) {
-      const [, userCompanies, isAdmin] = await Promise.all([
+      const [, userCompanies, globalRole] = await Promise.all([
         fetchProfile(user.id),
         fetchCompanies(user.id),
         fetchGlobalRole(user.id),
       ]);
-      autoSelectCompany(userCompanies, isAdmin);
+      autoSelectCompany(userCompanies, globalRole);
     }
   };
 
@@ -129,18 +133,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (currentSession?.user) {
           setTimeout(async () => {
-            const [, userCompanies, isAdmin] = await Promise.all([
+            const [, userCompanies, globalRole] = await Promise.all([
               fetchProfile(currentSession.user.id),
               fetchCompanies(currentSession.user.id),
               fetchGlobalRole(currentSession.user.id),
             ]);
-            autoSelectCompany(userCompanies, isAdmin);
+            autoSelectCompany(userCompanies, globalRole);
             setIsLoading(false);
           }, 0);
         } else {
           setProfile(null);
           setCompanies([]);
           setIsGlobalAdmin(false);
+          setIsChiefAdmin(false);
           setCurrentCompanyIdState(null);
           localStorage.removeItem("currentCompanyId");
           setIsLoading(false);
@@ -181,6 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
     setCompanies([]);
     setIsGlobalAdmin(false);
+    setIsChiefAdmin(false);
     setCurrentCompanyIdState(null);
     localStorage.removeItem("currentCompanyId");
   };
@@ -193,6 +199,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         role,
         isGlobalAdmin,
+        isChiefAdmin,
         companies,
         currentCompanyId,
         currentCompanyName,

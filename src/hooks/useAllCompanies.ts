@@ -22,7 +22,7 @@ export interface CompanyWithUsers {
 }
 
 export function useAllCompanies() {
-  const { isGlobalAdmin } = useAuth();
+  const { isGlobalAdmin, isChiefAdmin } = useAuth();
 
   return useQuery({
     queryKey: ["all-companies-with-users"],
@@ -84,6 +84,6 @@ export function useAllCompanies() {
         users: companyUsersMap.get(c.id) || [],
       }));
     },
-    enabled: isGlobalAdmin,
+    enabled: isGlobalAdmin || isChiefAdmin,
   });
 }

@@ -42,7 +42,10 @@ Deno.serve(async (req) => {
       .eq("user_id", caller.id)
       .single();
 
-    if (!roleData || roleData.role !== "admin") {
+    const isGlobalAdmin = roleData?.role === "admin";
+    const isChiefAdmin = roleData?.role === "chief_admin";
+
+    if (!isGlobalAdmin && !isChiefAdmin) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -57,8 +60,25 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Chief admin can only delete their own company
+    if (isChiefAdmin) {
+      const { data: membership } = await adminClient
+        .from("user_companies")
+        .select("id")
+        .eq("user_id", caller.id)
+        .eq("company_id", id)
+        .eq("role", "admin")
+        .maybeSingle();
+
+      if (!membership) {
+        return new Response(JSON.stringify({ error: "Вы можете удалить только свою компанию" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // Delete related data in order
-    // 1. Get all tickets for this company
     const { data: tickets } = await adminClient
       .from("tickets")
       .select("id")
@@ -67,7 +87,6 @@ Deno.serve(async (req) => {
     const ticketIds = (tickets || []).map((t: any) => t.id);
 
     if (ticketIds.length > 0) {
-      // Delete attachments, comments, history for those tickets
       await adminClient.from("attachments").delete().in("ticket_id", ticketIds);
       await adminClient.from("comments").delete().in("ticket_id", ticketIds);
       await adminClient.from("ticket_history").delete().in("ticket_id", ticketIds);
@@ -75,14 +94,12 @@ Deno.serve(async (req) => {
       await adminClient.from("tickets").delete().eq("company_id", id);
     }
 
-    // Delete notifications without ticket_id for company users
     const { data: companyUsers } = await adminClient
       .from("user_companies")
       .select("user_id")
       .eq("company_id", id);
     const userIds = (companyUsers || []).map((u: any) => u.user_id);
 
-    // 2. Get categories and delete category_members
     const { data: categories } = await adminClient
       .from("categories")
       .select("id")
@@ -94,14 +111,10 @@ Deno.serve(async (req) => {
       await adminClient.from("categories").delete().eq("company_id", id);
     }
 
-    // 3. Delete FAQs, guides
     await adminClient.from("faqs").delete().eq("company_id", id);
     await adminClient.from("guides").delete().eq("company_id", id);
-
-    // 4. Delete user_companies
     await adminClient.from("user_companies").delete().eq("company_id", id);
 
-    // 5. Delete company
     const { error } = await adminClient.from("companies").delete().eq("id", id);
 
     if (error) {
@@ -110,6 +123,14 @@ Deno.serve(async (req) => {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // If chief_admin deleted their company, revoke their role back to 'user'
+    if (isChiefAdmin) {
+      await adminClient
+        .from("user_roles")
+        .update({ role: "user" })
+        .eq("user_id", caller.id);
     }
 
     return new Response(JSON.stringify({ success: true }), {

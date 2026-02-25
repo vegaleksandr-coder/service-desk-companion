@@ -2,7 +2,7 @@ export type TicketPriority = 'low' | 'medium' | 'high' | 'critical' | 'deadline'
 
 export type TicketStatus = 'new' | 'in_progress' | 'awaiting' | 'resolved' | 'closed';
 
-export type UserRole = 'admin' | 'executor' | 'user';
+export type UserRole = 'admin' | 'chief_admin' | 'executor' | 'user';
 
 export interface User {
   id: string;
@@ -76,6 +76,7 @@ export const statusLabels: Record<TicketStatus, string> = {
 
 export const roleLabels: Record<UserRole, string> = {
   admin: 'Администратор',
+  chief_admin: 'Главный администратор',
   executor: 'Исполнитель',
   user: 'Пользователь',
 };

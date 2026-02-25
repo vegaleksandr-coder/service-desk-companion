@@ -50,7 +50,7 @@ interface MobileMenuSheetProps {
 export function MobileMenuSheet({ open, onOpenChange }: MobileMenuSheetProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { profile, role, isGlobalAdmin, signOut } = useAuth();
+  const { profile, role, isGlobalAdmin, isChiefAdmin, signOut } = useAuth();
 
   const handleSignOut = async () => {
     await signOut();
@@ -114,18 +114,18 @@ export function MobileMenuSheet({ open, onOpenChange }: MobileMenuSheetProps) {
               <NavLink key={item.path} {...item} />
             ))}
 
-          {(role === 'admin' || isGlobalAdmin || profile?.can_manage_users) && (
+          {(role === 'admin' || isGlobalAdmin || isChiefAdmin || profile?.can_manage_users) && (
             <>
               <Separator className="my-4" />
               <span className="text-xs font-medium text-muted-foreground px-3 uppercase tracking-wider">
                 Администрирование
               </span>
-              {(role === 'admin' || isGlobalAdmin) ? (
+              {(role === 'admin' || isGlobalAdmin || isChiefAdmin) ? (
                 <>
                   {adminNavItems.map((item) => (
                     <NavLink key={item.path} {...item} />
                   ))}
-                  {isGlobalAdmin && (
+                  {(isGlobalAdmin || isChiefAdmin) && (
                     <NavLink path="/admin/companies" icon={Building2} label="Компании" />
                   )}
                 </>

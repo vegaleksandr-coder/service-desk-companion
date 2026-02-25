@@ -38,12 +38,14 @@ import { ImportUsersDialog } from "@/components/ImportUsersDialog";
 
 const roleColors: Record<UserRole, string> = {
   admin: "bg-priority-critical/10 text-priority-critical border-priority-critical/20",
+  chief_admin: "bg-priority-critical/10 text-priority-critical border-priority-critical/20",
   executor: "bg-priority-high/10 text-priority-high border-priority-high/20",
   user: "bg-muted text-muted-foreground border-border",
 };
 
 const roleIcons: Record<UserRole, typeof Shield> = {
   admin: Shield,
+  chief_admin: Shield,
   executor: CheckCircle,
   user: UserIcon,
 };

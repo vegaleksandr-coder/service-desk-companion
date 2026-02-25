@@ -42,12 +42,13 @@ import { CategoryMembersForUserDialog } from "@/components/CategoryMembersForUse
 
 const roleColors: Record<UserRole, string> = {
   admin: "bg-priority-critical/10 text-priority-critical border-priority-critical/20",
+  chief_admin: "bg-priority-critical/10 text-priority-critical border-priority-critical/20",
   executor: "bg-priority-high/10 text-priority-high border-priority-high/20",
   user: "bg-muted text-muted-foreground border-border",
 };
 
 export default function AdminCompanies() {
-  const { user: currentUser, refreshProfile } = useAuth();
+  const { user: currentUser, isGlobalAdmin, isChiefAdmin, refreshProfile } = useAuth();
   const { data: companies, isLoading, refetch } = useAllCompanies();
   const queryClient = useQueryClient();
 

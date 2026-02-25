@@ -28,18 +28,20 @@ import { toast } from "@/hooks/use-toast";
 
 const roleLabels: Record<string, string> = {
   admin: "Администратор",
+  chief_admin: "Главный администратор",
   executor: "Исполнитель",
   user: "Пользователь",
 };
 
 const roleIcons: Record<string, typeof Shield> = {
   admin: Shield,
+  chief_admin: Shield,
   executor: CheckCircle,
   user: UserIcon,
 };
 
 export default function CompanySelector() {
-  const { companies, setCurrentCompanyId, isLoading, user, isGlobalAdmin, refreshProfile, signOut } = useAuth();
+  const { companies, setCurrentCompanyId, isLoading, user, isGlobalAdmin, isChiefAdmin, refreshProfile, signOut } = useAuth();
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [companyName, setCompanyName] = useState("");
@@ -58,7 +60,7 @@ export default function CompanySelector() {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && companies.length === 1 && !isGlobalAdmin) {
+    if (!isLoading && companies.length === 1 && !isGlobalAdmin && !isChiefAdmin) {
       setCurrentCompanyId(companies[0].company_id);
       navigate("/", { replace: true });
     }
@@ -72,7 +74,7 @@ export default function CompanySelector() {
     );
   }
 
-  if (companies.length === 0 && !isGlobalAdmin) {
+  if (companies.length === 0 && !isGlobalAdmin && !isChiefAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="text-center space-y-4">
@@ -187,7 +189,7 @@ export default function CompanySelector() {
                       {roleLabels[company.role] || company.role}
                     </p>
                   </div>
-                  {isGlobalAdmin && (
+                  {(isGlobalAdmin || isChiefAdmin) && (
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button
                         size="icon"
@@ -222,7 +224,7 @@ export default function CompanySelector() {
             );
           })}
 
-          {isGlobalAdmin && (
+          {(isGlobalAdmin || (isChiefAdmin && companies.length === 0)) && (
             <Button
               variant="outline"
               className="w-full h-14 border-dashed"

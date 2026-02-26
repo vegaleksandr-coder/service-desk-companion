@@ -92,8 +92,8 @@ export function useUpdateUserRole() {
 
       if (error) throw error;
 
-      // Also update user_roles for backward compat
-      await supabase.from("user_roles").update({ role: newRole }).eq("user_id", userId);
+      // Do NOT update user_roles - that table stores global roles (admin, chief_admin)
+      // Company-level roles are managed via user_companies only
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });

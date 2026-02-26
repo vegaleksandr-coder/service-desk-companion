@@ -51,7 +51,7 @@ const roleIcons: Record<UserRole, typeof Shield> = {
 };
 
 export default function AdminUsers() {
-  const { user: currentUser, role, currentCompanyId, isGlobalAdmin } = useAuth();
+  const { user: currentUser, role, currentCompanyId, isGlobalAdmin, isChiefAdmin } = useAuth();
   const { data: users, isLoading } = useAdminUsers();
   const updateRole = useUpdateUserRole();
   const updateProfile = useUpdateUserProfile();
@@ -183,7 +183,7 @@ export default function AdminUsers() {
     }
   };
 
-  const isAdmin = role === 'admin' || isGlobalAdmin;
+  const isAdmin = role === 'admin' || isGlobalAdmin || isChiefAdmin;
 
   const UserDropdownItems = ({ user }: { user: AdminUser }) => (
     <>

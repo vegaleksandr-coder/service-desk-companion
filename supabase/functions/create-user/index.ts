@@ -36,7 +36,15 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Check caller permissions: admin in any company OR can_manage_users
+    // Check caller permissions: admin in any company, chief_admin, or can_manage_users
+    const { data: callerRole } = await adminClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", caller.id)
+      .single();
+
+    const isGlobalAdminOrChief = callerRole?.role === "admin" || callerRole?.role === "chief_admin";
+
     const { data: callerCompanies } = await adminClient
       .from("user_companies")
       .select("company_id, role")
@@ -45,7 +53,7 @@ Deno.serve(async (req) => {
     const isAdminInAnyCompany = callerCompanies?.some((c: any) => c.role === "admin");
 
     let canManageUsers = false;
-    if (!isAdminInAnyCompany) {
+    if (!isAdminInAnyCompany && !isGlobalAdminOrChief) {
       const { data: profileData } = await adminClient
         .from("profiles")
         .select("can_manage_users")
@@ -54,7 +62,7 @@ Deno.serve(async (req) => {
       canManageUsers = profileData?.can_manage_users === true;
     }
 
-    if (!isAdminInAnyCompany && !canManageUsers) {
+    if (!isAdminInAnyCompany && !canManageUsers && !isGlobalAdminOrChief) {
       return new Response(JSON.stringify({ error: "Forbidden: insufficient permissions" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

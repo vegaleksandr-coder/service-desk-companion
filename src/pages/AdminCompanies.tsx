@@ -92,6 +92,61 @@ export default function AdminCompanies() {
 
   const [categoriesUser, setCategoriesUser] = useState<{ userId: string; name: string } | null>(null);
 
+  // Chief admin assignment state (global admin only)
+  const [chiefAdminDialogOpen, setChiefAdminDialogOpen] = useState(false);
+  const [chiefAdminEmail, setChiefAdminEmail] = useState("");
+  const [assigningChiefAdmin, setAssigningChiefAdmin] = useState(false);
+
+  const handleAssignChiefAdmin = async () => {
+    if (!chiefAdminEmail.trim()) return;
+    setAssigningChiefAdmin(true);
+    try {
+      // Find user by email in profiles
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("user_id, name")
+        .eq("email", chiefAdminEmail.trim())
+        .maybeSingle();
+
+      if (profileError || !profileData) {
+        toast.error("Пользователь с таким email не найден");
+        return;
+      }
+
+      // Update user_roles to chief_admin
+      const { error } = await supabase
+        .from("user_roles")
+        .update({ role: "chief_admin" as any })
+        .eq("user_id", profileData.user_id);
+
+      if (error) throw error;
+
+      toast.success(`${profileData.name} назначен главным администратором`);
+      setChiefAdminDialogOpen(false);
+      setChiefAdminEmail("");
+      refetch();
+    } catch (e: any) {
+      toast.error(e.message || "Ошибка назначения");
+    } finally {
+      setAssigningChiefAdmin(false);
+    }
+  };
+
+  const handleRevokeChiefAdmin = async (userId: string, userName: string) => {
+    try {
+      const { error } = await supabase
+        .from("user_roles")
+        .update({ role: "user" as any })
+        .eq("user_id", userId);
+
+      if (error) throw error;
+      toast.success(`Роль главного администратора снята с ${userName}`);
+      refetch();
+    } catch {
+      toast.error("Ошибка при снятии роли");
+    }
+  };
+
   const toggleCompany = (id: string) => {
     setExpandedCompanies((prev) => {
       const next = new Set(prev);
@@ -332,7 +387,7 @@ export default function AdminCompanies() {
           </Card>
         </div>
 
-        {/* Search + Create */}
+        {/* Search + Actions */}
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -343,10 +398,20 @@ export default function AdminCompanies() {
               className="pl-10"
             />
           </div>
-          <Button onClick={() => setCreateDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Создать компанию
-          </Button>
+          <div className="flex gap-2">
+            {isGlobalAdmin && (
+              <Button variant="outline" onClick={() => setChiefAdminDialogOpen(true)}>
+                <UserCog className="h-4 w-4 mr-2" />
+                Назначить гл. админа
+              </Button>
+            )}
+            {(isGlobalAdmin || (isChiefAdmin && (companies || []).length === 0)) && (
+              <Button onClick={() => setCreateDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Создать компанию
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Companies list */}
@@ -819,6 +884,40 @@ export default function AdminCompanies() {
         open={!!categoriesUser}
         onOpenChange={(open) => !open && setCategoriesUser(null)}
       />
+
+      {/* Assign Chief Admin Dialog (global admin only) */}
+      {isGlobalAdmin && (
+        <Dialog open={chiefAdminDialogOpen} onOpenChange={setChiefAdminDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Назначить главного администратора</DialogTitle>
+              <DialogDescription>
+                Введите email пользователя, которому будет назначена роль главного администратора. 
+                Он сможет создать и управлять одной компанией.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>Email пользователя</Label>
+                <Input
+                  type="email"
+                  value={chiefAdminEmail}
+                  onChange={(e) => setChiefAdminEmail(e.target.value)}
+                  placeholder="user@example.com"
+                  onKeyDown={(e) => e.key === "Enter" && handleAssignChiefAdmin()}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setChiefAdminDialogOpen(false)}>Отмена</Button>
+              <Button onClick={handleAssignChiefAdmin} disabled={assigningChiefAdmin || !chiefAdminEmail.trim()}>
+                {assigningChiefAdmin && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Назначить
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </Layout>
   );
 

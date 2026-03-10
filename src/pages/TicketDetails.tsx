@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Badge } from "@/components/ui/badge";
@@ -57,7 +57,7 @@ const priorityLabels: Record<TicketPriority, string> = {
 export default function TicketDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, role } = useAuth();
+  const { user, role, isChiefAdmin, currentCompanyId } = useAuth();
   const [newComment, setNewComment] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<TicketStatus | null>(null);
   const [selectedAssignee, setSelectedAssignee] = useState<string | null>(null);
@@ -73,11 +73,28 @@ export default function TicketDetails() {
   const { data: categoryExecutors } = useCategoryExecutors(ticket?.category_id);
   const { data: userCategoryRole } = useUserCategoryRole(ticket?.category_id);
 
+  // Check if user is company admin via user_companies
+  const [isCompanyAdmin, setIsCompanyAdmin] = useState(false);
+  
+  useEffect(() => {
+    if (currentCompanyId && user) {
+      supabase
+        .from("user_companies")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("company_id", currentCompanyId)
+        .single()
+        .then(({ data }) => {
+          setIsCompanyAdmin(data?.role === "admin");
+        });
+    }
+  }, [currentCompanyId, user]);
+
   const isGlobalAdmin = role === 'admin';
   const isCategoryAdmin = userCategoryRole === 'admin';
   const isCategoryMember = !!userCategoryRole;
   const isAssignee = user?.id === ticket?.assignee_id;
-  const canManageTicket = isGlobalAdmin || isCategoryAdmin;
+  const canManageTicket = isGlobalAdmin || isChiefAdmin || isCompanyAdmin || isCategoryAdmin;
   const canChangeStatus = canManageTicket || isAssignee;
   const isAuthor = user?.id === ticket?.created_by;
   const canEdit = isAuthor && ticket?.status !== 'closed';
@@ -377,6 +394,26 @@ export default function TicketDetails() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                )}
+
+                {/* Self-assign for category members who can't manage the full dropdown */}
+                {isCategoryMember && !canManageTicket && !isAssignee && (
+                  <div className="space-y-2 flex items-end">
+                    <Button
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          await updateTicket.mutateAsync({ id: ticket.id, assignee_id: user!.id });
+                          toast.success("Вы назначены исполнителем");
+                        } catch {
+                          toast.error("Ошибка при назначении");
+                        }
+                      }}
+                      disabled={updateTicket.isPending}
+                    >
+                      Назначить себя
+                    </Button>
                   </div>
                 )}
               </div>

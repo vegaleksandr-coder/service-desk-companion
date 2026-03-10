@@ -396,6 +396,25 @@ export default function TicketDetails() {
                     </Select>
                   </div>
                 )}
+
+                {/* Self-assign for category admins */}
+                {isCategoryAdmin && !canManageTicket && !isAssignee && ticket.assignee_id !== user?.id && (
+                  <div className="space-y-2 flex items-end">
+                    <Button
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          await updateTicket.mutateAsync({ id: ticket.id, assignee_id: user!.id });
+                          toast.success("Вы назначены исполнителем");
+                        } catch {
+                          toast.error("Ошибка при назначении");
+                        }
+                      }}
+                      disabled={updateTicket.isPending}
+                    >
+                      Назначить себя
+                    </Button>
+                  </div>
               </div>
 
               {/* Comment required for awaiting/closed */}

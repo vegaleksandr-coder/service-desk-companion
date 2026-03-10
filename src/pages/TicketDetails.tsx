@@ -76,7 +76,7 @@ export default function TicketDetails() {
   // Check if user is company admin via user_companies
   const [isCompanyAdmin, setIsCompanyAdmin] = useState(false);
   
-  useState(() => {
+  useEffect(() => {
     if (currentCompanyId && user) {
       supabase
         .from("user_companies")
@@ -85,10 +85,10 @@ export default function TicketDetails() {
         .eq("company_id", currentCompanyId)
         .single()
         .then(({ data }) => {
-          if (data?.role === "admin") setIsCompanyAdmin(true);
+          setIsCompanyAdmin(data?.role === "admin");
         });
     }
-  });
+  }, [currentCompanyId, user]);
 
   const isGlobalAdmin = role === 'admin';
   const isCategoryAdmin = userCategoryRole === 'admin';

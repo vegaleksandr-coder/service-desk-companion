@@ -397,8 +397,8 @@ export default function TicketDetails() {
                   </div>
                 )}
 
-                {/* Self-assign for category admins */}
-                {isCategoryAdmin && !canManageTicket && !isAssignee && ticket.assignee_id !== user?.id && (
+                {/* Self-assign for category members who can't manage the full dropdown */}
+                {isCategoryMember && !canManageTicket && !isAssignee && (
                   <div className="space-y-2 flex items-end">
                     <Button
                       variant="outline"
@@ -415,6 +415,7 @@ export default function TicketDetails() {
                       Назначить себя
                     </Button>
                   </div>
+                )}
               </div>
 
               {/* Comment required for awaiting/closed */}

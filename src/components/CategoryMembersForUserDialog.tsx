@@ -133,7 +133,7 @@ export function CategoryMembersForUserDialog({ userId, userName, open, onOpenCha
                   <div className="px-2 py-1.5 text-sm text-muted-foreground">Нет доступных категорий</div>
                 ) : (
                   availableCategories.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.companyName ? `${c.name} (${c.companyName})` : c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))
                 )}
               </SelectContent>

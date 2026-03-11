@@ -52,6 +52,8 @@ export function MobileMenuSheet({ open, onOpenChange }: MobileMenuSheetProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, role, isGlobalAdmin, isChiefAdmin, signOut } = useAuth();
+  const { data: categoryAdminData } = useIsCategoryAdmin();
+  const isCategoryAdmin = categoryAdminData?.isCategoryAdmin || false;
 
   const handleSignOut = async () => {
     await signOut();

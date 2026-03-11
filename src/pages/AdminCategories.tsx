@@ -387,24 +387,28 @@ export default function AdminCategories() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => {
-                                setEditingCategory(category);
-                                setIsEditDialogOpen(true);
-                              }}>
-                                <Pencil className="h-4 w-4 mr-2" />
-                                Редактировать
-                              </DropdownMenuItem>
+                              {isCompanyAdmin && (
+                                <DropdownMenuItem onClick={() => {
+                                  setEditingCategory(category);
+                                  setIsEditDialogOpen(true);
+                                }}>
+                                  <Pencil className="h-4 w-4 mr-2" />
+                                  Редактировать
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem onClick={() => setMembersCategory(category)}>
                                 <Users className="h-4 w-4 mr-2" />
                                 Участники
                               </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                className="text-destructive"
-                                onClick={() => setDeletingCategory(category)}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Удалить
-                              </DropdownMenuItem>
+                              {isCompanyAdmin && (
+                                <DropdownMenuItem 
+                                  className="text-destructive"
+                                  onClick={() => setDeletingCategory(category)}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Удалить
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>

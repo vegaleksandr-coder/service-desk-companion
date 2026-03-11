@@ -289,33 +289,34 @@ export default function AdminCategories() {
   return (
     <Layout title="Управление категориями">
       <div className="container mx-auto px-4 py-6 space-y-6">
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold">{(categories || []).length}</div>
-              <p className="text-xs text-muted-foreground">Всего категорий</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold text-status-in-progress">
-                {(categories || []).filter(c => c.icon === 'monitor').length}
-              </div>
-              <p className="text-xs text-muted-foreground">IT категорий</p>
-            </CardContent>
-          </Card>
-          <Card className="col-span-2 md:col-span-1">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-2">
-                <Palette className="h-5 w-5 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  {colorOptions.length} цветов доступно
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {isCompanyAdmin && (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold">{(categories || []).length}</div>
+                <p className="text-xs text-muted-foreground">Всего категорий</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold text-status-in-progress">
+                  {(categories || []).filter(c => c.icon === 'monitor').length}
+                </div>
+                <p className="text-xs text-muted-foreground">IT категорий</p>
+              </CardContent>
+            </Card>
+            <Card className="col-span-2 md:col-span-1">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2">
+                  <Palette className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    {colorOptions.length} цветов доступно
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Categories Table */}
         <Card>

@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAddCategoryMember, useRemoveCategoryMember } from "@/hooks/useCategoryMembers";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Props {
   userId: string | null;
@@ -24,23 +25,26 @@ interface Props {
 export function CategoryMembersForUserDialog({ userId, userName, open, onOpenChange }: Props) {
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [selectedRole, setSelectedRole] = useState<"admin" | "executor">("executor");
+  const { currentCompanyId } = useAuth();
 
   const { data: categories, isLoading: catsLoading } = useQuery({
-    queryKey: ["all-categories-with-company"],
+    queryKey: ["categories-for-company", currentCompanyId],
     queryFn: async () => {
+      if (!currentCompanyId) return [];
       const { data, error } = await supabase
         .from("categories")
-        .select("id, name, company_id, companies(name)")
+        .select("id, name, company_id")
+        .eq("company_id", currentCompanyId)
         .order("name");
       if (error) throw error;
       return (data || []).map((c: any) => ({
         id: c.id,
         name: c.name,
         company_id: c.company_id,
-        companyName: c.companies?.name || "",
+        companyName: "",
       }));
     },
-    enabled: open,
+    enabled: open && !!currentCompanyId,
   });
 
   const { data: userMemberships, isLoading: membershipsLoading } = useQuery({
@@ -90,8 +94,7 @@ export function CategoryMembersForUserDialog({ userId, userName, open, onOpenCha
 
   const getCategoryName = (catId: string) => {
     const cat = categories?.find((c) => c.id === catId);
-    if (!cat) return catId;
-    return cat.companyName ? `${cat.name} (${cat.companyName})` : cat.name;
+    return cat?.name || catId;
   };
 
   const isLoading = catsLoading || membershipsLoading;
@@ -130,7 +133,7 @@ export function CategoryMembersForUserDialog({ userId, userName, open, onOpenCha
                   <div className="px-2 py-1.5 text-sm text-muted-foreground">Нет доступных категорий</div>
                 ) : (
                   availableCategories.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.companyName ? `${c.name} (${c.companyName})` : c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))
                 )}
               </SelectContent>

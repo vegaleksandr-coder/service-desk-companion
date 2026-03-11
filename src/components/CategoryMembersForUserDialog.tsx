@@ -94,8 +94,7 @@ export function CategoryMembersForUserDialog({ userId, userName, open, onOpenCha
 
   const getCategoryName = (catId: string) => {
     const cat = categories?.find((c) => c.id === catId);
-    if (!cat) return catId;
-    return cat.companyName ? `${cat.name} (${cat.companyName})` : cat.name;
+    return cat?.name || catId;
   };
 
   const isLoading = catsLoading || membershipsLoading;

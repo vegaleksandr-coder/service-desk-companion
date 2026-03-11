@@ -26,11 +26,19 @@ export function CategoryMembersForUserDialog({ userId, userName, open, onOpenCha
   const [selectedRole, setSelectedRole] = useState<"admin" | "executor">("executor");
 
   const { data: categories, isLoading: catsLoading } = useQuery({
-    queryKey: ["all-categories"],
+    queryKey: ["all-categories-with-company"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("categories").select("id, name").order("name");
+      const { data, error } = await supabase
+        .from("categories")
+        .select("id, name, company_id, companies(name)")
+        .order("name");
       if (error) throw error;
-      return data || [];
+      return (data || []).map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        company_id: c.company_id,
+        companyName: c.companies?.name || "",
+      }));
     },
     enabled: open,
   });
@@ -80,8 +88,11 @@ export function CategoryMembersForUserDialog({ userId, userName, open, onOpenCha
     }
   };
 
-  const getCategoryName = (catId: string) =>
-    categories?.find((c) => c.id === catId)?.name || catId;
+  const getCategoryName = (catId: string) => {
+    const cat = categories?.find((c) => c.id === catId);
+    if (!cat) return catId;
+    return cat.companyName ? `${cat.name} (${cat.companyName})` : cat.name;
+  };
 
   const isLoading = catsLoading || membershipsLoading;
 
@@ -119,7 +130,7 @@ export function CategoryMembersForUserDialog({ userId, userName, open, onOpenCha
                   <div className="px-2 py-1.5 text-sm text-muted-foreground">Нет доступных категорий</div>
                 ) : (
                   availableCategories.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>{c.companyName ? `${c.name} (${c.companyName})` : c.name}</SelectItem>
                   ))
                 )}
               </SelectContent>

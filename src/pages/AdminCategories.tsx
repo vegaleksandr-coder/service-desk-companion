@@ -192,10 +192,17 @@ const CategoryForm = ({
 );
 
 export default function AdminCategories() {
+  const { role, isGlobalAdmin, isChiefAdmin } = useAuth();
   const { data: categories, isLoading } = useCategories();
+  const { data: categoryAdminData } = useIsCategoryAdmin();
   const createCategory = useCreateCategory();
   const updateCategory = useUpdateCategory();
   const deleteCategory = useDeleteCategory();
+
+  // Is this user a full company admin (can create/edit/delete categories)?
+  const isCompanyAdmin = role === 'admin' || isGlobalAdmin || isChiefAdmin;
+  // Category admin IDs this user manages
+  const myCategoryAdminIds = categoryAdminData?.categoryIds || [];
 
   const [searchQuery, setSearchQuery] = useState("");
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -210,7 +217,12 @@ export default function AdminCategories() {
     color: "blue",
   });
 
-  const filteredCategories = (categories || []).filter((cat) =>
+  // Category admins only see their categories; company admins see all
+  const visibleCategories = isCompanyAdmin
+    ? (categories || [])
+    : (categories || []).filter((cat) => myCategoryAdminIds.includes(cat.id));
+
+  const filteredCategories = visibleCategories.filter((cat) =>
     cat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     cat.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );

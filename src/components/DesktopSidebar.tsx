@@ -19,6 +19,7 @@ import { useState } from "react";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
+import { useIsCategoryAdmin } from "@/hooks/useIsCategoryAdmin";
 
 const mainNavItems = [
   { path: '/', icon: Home, label: 'Главная' },

@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useIsCategoryAdmin } from "@/hooks/useIsCategoryAdmin";
 import { Loader2 } from "lucide-react";
 
 type AppRole = "admin" | "executor" | "user";
@@ -8,13 +9,15 @@ interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredRole?: AppRole | AppRole[];
   allowUserManagers?: boolean;
+  allowCategoryAdmins?: boolean;
 }
 
-export function ProtectedRoute({ children, requiredRole, allowUserManagers }: ProtectedRouteProps) {
+export function ProtectedRoute({ children, requiredRole, allowUserManagers, allowCategoryAdmins }: ProtectedRouteProps) {
   const { user, role, profile, isLoading, isGlobalAdmin, isChiefAdmin, companies, currentCompanyId } = useAuth();
+  const { data: categoryAdminData, isLoading: categoryAdminLoading } = useIsCategoryAdmin();
   const location = useLocation();
 
-  if (isLoading) {
+  if (isLoading || (allowCategoryAdmins && categoryAdminLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -34,7 +37,8 @@ export function ProtectedRoute({ children, requiredRole, allowUserManagers }: Pr
     const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
     const hasRole = role && roles.includes(role);
     const isUserManager = allowUserManagers && profile?.can_manage_users;
-    if (!hasRole && !isUserManager && !isGlobalAdmin && !isChiefAdmin) {
+    const isCatAdmin = allowCategoryAdmins && categoryAdminData?.isCategoryAdmin;
+    if (!hasRole && !isUserManager && !isCatAdmin && !isGlobalAdmin && !isChiefAdmin) {
       return <Navigate to="/" replace />;
     }
   }

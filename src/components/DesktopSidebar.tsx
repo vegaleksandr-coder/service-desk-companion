@@ -155,7 +155,7 @@ export function DesktopSidebar() {
         </div>
 
         {/* Admin navigation */}
-        {(role === 'admin' || isGlobalAdmin || isChiefAdmin || profile?.can_manage_users) && (
+        {(role === 'admin' || isGlobalAdmin || isChiefAdmin || profile?.can_manage_users || isCategoryAdmin) && (
           <>
             <Separator className="my-4 bg-sidebar-border" />
             <div className="space-y-1">
@@ -174,7 +174,14 @@ export function DesktopSidebar() {
                   )}
                 </>
               ) : (
-                <NavLink path="/admin/users" icon={Users} label="Пользователи" />
+                <>
+                  {profile?.can_manage_users && (
+                    <NavLink path="/admin/users" icon={Users} label="Пользователи" />
+                  )}
+                  {isCategoryAdmin && (
+                    <NavLink path="/admin/categories" icon={ClipboardList} label="Категории" />
+                  )}
+                </>
               )}
             </div>
           </>

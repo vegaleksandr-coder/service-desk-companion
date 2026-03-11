@@ -68,6 +68,8 @@ import {
 } from "lucide-react";
 import { CategoryMembersDialog } from "@/components/CategoryMembersDialog";
 import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory, Category } from "@/hooks/useTickets";
+import { useIsCategoryAdmin } from "@/hooks/useIsCategoryAdmin";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 const iconOptions = [

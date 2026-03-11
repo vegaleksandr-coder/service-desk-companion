@@ -82,6 +82,7 @@ export function useAddCategoryMember() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["category-members", variables.categoryId] });
       queryClient.invalidateQueries({ queryKey: ["category-executors", variables.categoryId] });
+      queryClient.invalidateQueries({ queryKey: ["user-category-memberships", variables.userId] });
     },
   });
 }

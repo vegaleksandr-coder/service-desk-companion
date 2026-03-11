@@ -45,6 +45,8 @@ export function DesktopSidebar() {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const { profile, role, isGlobalAdmin, isChiefAdmin, signOut } = useAuth();
+  const { data: categoryAdminData } = useIsCategoryAdmin();
+  const isCategoryAdmin = categoryAdminData?.isCategoryAdmin || false;
 
   const handleSignOut = async () => {
     await signOut();

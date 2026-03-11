@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
+import { useIsCategoryAdmin } from "@/hooks/useIsCategoryAdmin";
 import {
   Sheet,
   SheetContent,

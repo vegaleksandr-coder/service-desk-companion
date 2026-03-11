@@ -356,23 +356,12 @@ export default function AdminCompanies() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <Layout title="Управление компаниями">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </Layout>
-    );
-  }
-
   const totalUsers = (companies || []).reduce((sum, c) => sum + c.users.length, 0);
 
-  // Collect chief admins from all company users by checking user_roles
+  // Collect chief admins (global admin only)
   const [chiefAdmins, setChiefAdmins] = useState<Array<{ user_id: string; name: string; email: string }>>([]);
   const [chiefAdminsLoading, setChiefAdminsLoading] = useState(false);
 
-  // Fetch chief admins on mount and after changes
   useEffect(() => {
     if (!isGlobalAdmin) return;
     const fetchChiefAdmins = async () => {
@@ -398,7 +387,7 @@ export default function AdminCompanies() {
     fetchChiefAdmins();
   }, [isGlobalAdmin, companies]);
 
-  return (
+  if (isLoading) {
     <Layout title="Управление компаниями">
       <div className="container mx-auto px-4 py-6 space-y-6">
         {/* Stats */}

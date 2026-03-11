@@ -26,11 +26,19 @@ export function CategoryMembersForUserDialog({ userId, userName, open, onOpenCha
   const [selectedRole, setSelectedRole] = useState<"admin" | "executor">("executor");
 
   const { data: categories, isLoading: catsLoading } = useQuery({
-    queryKey: ["all-categories"],
+    queryKey: ["all-categories-with-company"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("categories").select("id, name").order("name");
+      const { data, error } = await supabase
+        .from("categories")
+        .select("id, name, company_id, companies(name)")
+        .order("name");
       if (error) throw error;
-      return data || [];
+      return (data || []).map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        company_id: c.company_id,
+        companyName: c.companies?.name || "",
+      }));
     },
     enabled: open,
   });

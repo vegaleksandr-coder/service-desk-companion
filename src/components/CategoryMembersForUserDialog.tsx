@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAddCategoryMember, useRemoveCategoryMember } from "@/hooks/useCategoryMembers";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Props {
   userId: string | null;

@@ -322,11 +322,13 @@ export default function AdminCategories() {
         <Card>
           <CardHeader className="pb-4">
             <div className="flex flex-col sm:flex-row gap-4 justify-between">
-              <CardTitle>Категории заявок</CardTitle>
-              <Button onClick={() => setIsAddDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Добавить категорию
-              </Button>
+              <CardTitle>{isCompanyAdmin ? "Категории заявок" : "Мои категории"}</CardTitle>
+              {isCompanyAdmin && (
+                <Button onClick={() => setIsAddDialogOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Добавить категорию
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent>

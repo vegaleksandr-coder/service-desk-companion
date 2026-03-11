@@ -388,6 +388,16 @@ export default function AdminCompanies() {
   }, [isGlobalAdmin, companies]);
 
   if (isLoading) {
+    return (
+      <Layout title="Управление компаниями">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
+
+  return (
     <Layout title="Управление компаниями">
       <div className="container mx-auto px-4 py-6 space-y-6">
         {/* Stats */}

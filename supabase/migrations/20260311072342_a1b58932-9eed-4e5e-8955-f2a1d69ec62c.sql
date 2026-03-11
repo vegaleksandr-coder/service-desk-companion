@@ -1,0 +1,1 @@
+ALTER TABLE public.categories ADD CONSTRAINT categories_company_name_unique UNIQUE (company_id, name);

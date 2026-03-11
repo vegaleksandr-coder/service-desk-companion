@@ -68,6 +68,8 @@ import {
 } from "lucide-react";
 import { CategoryMembersDialog } from "@/components/CategoryMembersDialog";
 import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory, Category } from "@/hooks/useTickets";
+import { useIsCategoryAdmin } from "@/hooks/useIsCategoryAdmin";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 const iconOptions = [
@@ -190,10 +192,17 @@ const CategoryForm = ({
 );
 
 export default function AdminCategories() {
+  const { role, isGlobalAdmin, isChiefAdmin } = useAuth();
   const { data: categories, isLoading } = useCategories();
+  const { data: categoryAdminData } = useIsCategoryAdmin();
   const createCategory = useCreateCategory();
   const updateCategory = useUpdateCategory();
   const deleteCategory = useDeleteCategory();
+
+  // Is this user a full company admin (can create/edit/delete categories)?
+  const isCompanyAdmin = role === 'admin' || isGlobalAdmin || isChiefAdmin;
+  // Category admin IDs this user manages
+  const myCategoryAdminIds = categoryAdminData?.categoryIds || [];
 
   const [searchQuery, setSearchQuery] = useState("");
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -208,7 +217,12 @@ export default function AdminCategories() {
     color: "blue",
   });
 
-  const filteredCategories = (categories || []).filter((cat) =>
+  // Category admins only see their categories; company admins see all
+  const visibleCategories = isCompanyAdmin
+    ? (categories || [])
+    : (categories || []).filter((cat) => myCategoryAdminIds.includes(cat.id));
+
+  const filteredCategories = visibleCategories.filter((cat) =>
     cat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     cat.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -275,43 +289,46 @@ export default function AdminCategories() {
   return (
     <Layout title="Управление категориями">
       <div className="container mx-auto px-4 py-6 space-y-6">
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold">{(categories || []).length}</div>
-              <p className="text-xs text-muted-foreground">Всего категорий</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold text-status-in-progress">
-                {(categories || []).filter(c => c.icon === 'monitor').length}
-              </div>
-              <p className="text-xs text-muted-foreground">IT категорий</p>
-            </CardContent>
-          </Card>
-          <Card className="col-span-2 md:col-span-1">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-2">
-                <Palette className="h-5 w-5 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  {colorOptions.length} цветов доступно
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {isCompanyAdmin && (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold">{(categories || []).length}</div>
+                <p className="text-xs text-muted-foreground">Всего категорий</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold text-status-in-progress">
+                  {(categories || []).filter(c => c.icon === 'monitor').length}
+                </div>
+                <p className="text-xs text-muted-foreground">IT категорий</p>
+              </CardContent>
+            </Card>
+            <Card className="col-span-2 md:col-span-1">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2">
+                  <Palette className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    {colorOptions.length} цветов доступно
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Categories Table */}
         <Card>
           <CardHeader className="pb-4">
             <div className="flex flex-col sm:flex-row gap-4 justify-between">
-              <CardTitle>Категории заявок</CardTitle>
-              <Button onClick={() => setIsAddDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Добавить категорию
-              </Button>
+              <CardTitle>{isCompanyAdmin ? "Категории заявок" : "Мои категории"}</CardTitle>
+              {isCompanyAdmin && (
+                <Button onClick={() => setIsAddDialogOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Добавить категорию
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -370,24 +387,28 @@ export default function AdminCategories() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => {
-                                setEditingCategory(category);
-                                setIsEditDialogOpen(true);
-                              }}>
-                                <Pencil className="h-4 w-4 mr-2" />
-                                Редактировать
-                              </DropdownMenuItem>
+                              {isCompanyAdmin && (
+                                <DropdownMenuItem onClick={() => {
+                                  setEditingCategory(category);
+                                  setIsEditDialogOpen(true);
+                                }}>
+                                  <Pencil className="h-4 w-4 mr-2" />
+                                  Редактировать
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem onClick={() => setMembersCategory(category)}>
                                 <Users className="h-4 w-4 mr-2" />
                                 Участники
                               </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                className="text-destructive"
-                                onClick={() => setDeletingCategory(category)}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Удалить
-                              </DropdownMenuItem>
+                              {isCompanyAdmin && (
+                                <DropdownMenuItem 
+                                  className="text-destructive"
+                                  onClick={() => setDeletingCategory(category)}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Удалить
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -424,24 +445,28 @@ export default function AdminCategories() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => {
-                              setEditingCategory(category);
-                              setIsEditDialogOpen(true);
-                            }}>
-                              <Pencil className="h-4 w-4 mr-2" />
-                              Редактировать
-                            </DropdownMenuItem>
+                            {isCompanyAdmin && (
+                              <DropdownMenuItem onClick={() => {
+                                setEditingCategory(category);
+                                setIsEditDialogOpen(true);
+                              }}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Редактировать
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => setMembersCategory(category)}>
                               <Users className="h-4 w-4 mr-2" />
                               Участники
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              className="text-destructive"
-                              onClick={() => setDeletingCategory(category)}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Удалить
-                            </DropdownMenuItem>
+                            {isCompanyAdmin && (
+                              <DropdownMenuItem 
+                                className="text-destructive"
+                                onClick={() => setDeletingCategory(category)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Удалить
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>

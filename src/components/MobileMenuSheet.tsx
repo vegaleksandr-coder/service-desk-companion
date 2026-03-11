@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
+import { useIsCategoryAdmin } from "@/hooks/useIsCategoryAdmin";
 import {
   Sheet,
   SheetContent,
@@ -51,6 +52,8 @@ export function MobileMenuSheet({ open, onOpenChange }: MobileMenuSheetProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, role, isGlobalAdmin, isChiefAdmin, signOut } = useAuth();
+  const { data: categoryAdminData } = useIsCategoryAdmin();
+  const isCategoryAdmin = categoryAdminData?.isCategoryAdmin || false;
 
   const handleSignOut = async () => {
     await signOut();
@@ -114,7 +117,7 @@ export function MobileMenuSheet({ open, onOpenChange }: MobileMenuSheetProps) {
               <NavLink key={item.path} {...item} />
             ))}
 
-          {(role === 'admin' || isGlobalAdmin || isChiefAdmin || profile?.can_manage_users) && (
+          {(role === 'admin' || isGlobalAdmin || isChiefAdmin || profile?.can_manage_users || isCategoryAdmin) && (
             <>
               <Separator className="my-4" />
               <span className="text-xs font-medium text-muted-foreground px-3 uppercase tracking-wider">
@@ -130,7 +133,14 @@ export function MobileMenuSheet({ open, onOpenChange }: MobileMenuSheetProps) {
                   )}
                 </>
               ) : (
-                <NavLink path="/admin/users" icon={Users} label="Пользователи" />
+                <>
+                  {profile?.can_manage_users && (
+                    <NavLink path="/admin/users" icon={Users} label="Пользователи" />
+                  )}
+                  {isCategoryAdmin && (
+                    <NavLink path="/admin/categories" icon={ClipboardList} label="Категории" />
+                  )}
+                </>
               )}
             </>
           )}

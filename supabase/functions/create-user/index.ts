@@ -53,6 +53,8 @@ Deno.serve(async (req) => {
     const isAdminInAnyCompany = callerCompanies?.some((c: any) => c.role === "admin");
 
     let canManageUsers = false;
+    let isCategoryAdmin = false;
+
     if (!isAdminInAnyCompany && !isGlobalAdminOrChief) {
       const { data: profileData } = await adminClient
         .from("profiles")
@@ -60,9 +62,20 @@ Deno.serve(async (req) => {
         .eq("user_id", caller.id)
         .single();
       canManageUsers = profileData?.can_manage_users === true;
+
+      // Check if caller is admin of any category
+      if (!canManageUsers) {
+        const { data: catAdminData } = await adminClient
+          .from("category_members")
+          .select("id")
+          .eq("user_id", caller.id)
+          .eq("role", "admin")
+          .limit(1);
+        isCategoryAdmin = (catAdminData || []).length > 0;
+      }
     }
 
-    if (!isAdminInAnyCompany && !canManageUsers && !isGlobalAdminOrChief) {
+    if (!isAdminInAnyCompany && !canManageUsers && !isGlobalAdminOrChief && !isCategoryAdmin) {
       return new Response(JSON.stringify({ error: "Forbidden: insufficient permissions" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

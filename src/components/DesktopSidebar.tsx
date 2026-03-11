@@ -19,6 +19,7 @@ import { useState } from "react";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
+import { useIsCategoryAdmin } from "@/hooks/useIsCategoryAdmin";
 
 const mainNavItems = [
   { path: '/', icon: Home, label: 'Главная' },
@@ -44,6 +45,8 @@ export function DesktopSidebar() {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const { profile, role, isGlobalAdmin, isChiefAdmin, signOut } = useAuth();
+  const { data: categoryAdminData } = useIsCategoryAdmin();
+  const isCategoryAdmin = categoryAdminData?.isCategoryAdmin || false;
 
   const handleSignOut = async () => {
     await signOut();
@@ -152,7 +155,7 @@ export function DesktopSidebar() {
         </div>
 
         {/* Admin navigation */}
-        {(role === 'admin' || isGlobalAdmin || isChiefAdmin || profile?.can_manage_users) && (
+        {(role === 'admin' || isGlobalAdmin || isChiefAdmin || profile?.can_manage_users || isCategoryAdmin) && (
           <>
             <Separator className="my-4 bg-sidebar-border" />
             <div className="space-y-1">
@@ -171,7 +174,14 @@ export function DesktopSidebar() {
                   )}
                 </>
               ) : (
-                <NavLink path="/admin/users" icon={Users} label="Пользователи" />
+                <>
+                  {profile?.can_manage_users && (
+                    <NavLink path="/admin/users" icon={Users} label="Пользователи" />
+                  )}
+                  {isCategoryAdmin && (
+                    <NavLink path="/admin/categories" icon={ClipboardList} label="Категории" />
+                  )}
+                </>
               )}
             </div>
           </>

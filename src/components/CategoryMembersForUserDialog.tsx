@@ -25,23 +25,26 @@ interface Props {
 export function CategoryMembersForUserDialog({ userId, userName, open, onOpenChange }: Props) {
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [selectedRole, setSelectedRole] = useState<"admin" | "executor">("executor");
+  const { currentCompanyId } = useAuth();
 
   const { data: categories, isLoading: catsLoading } = useQuery({
-    queryKey: ["all-categories-with-company"],
+    queryKey: ["categories-for-company", currentCompanyId],
     queryFn: async () => {
+      if (!currentCompanyId) return [];
       const { data, error } = await supabase
         .from("categories")
-        .select("id, name, company_id, companies(name)")
+        .select("id, name, company_id")
+        .eq("company_id", currentCompanyId)
         .order("name");
       if (error) throw error;
       return (data || []).map((c: any) => ({
         id: c.id,
         name: c.name,
         company_id: c.company_id,
-        companyName: c.companies?.name || "",
+        companyName: "",
       }));
     },
-    enabled: open,
+    enabled: open && !!currentCompanyId,
   });
 
   const { data: userMemberships, isLoading: membershipsLoading } = useQuery({

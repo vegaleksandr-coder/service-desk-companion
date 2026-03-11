@@ -368,6 +368,36 @@ export default function AdminCompanies() {
 
   const totalUsers = (companies || []).reduce((sum, c) => sum + c.users.length, 0);
 
+  // Collect chief admins from all company users by checking user_roles
+  const [chiefAdmins, setChiefAdmins] = useState<Array<{ user_id: string; name: string; email: string }>>([]);
+  const [chiefAdminsLoading, setChiefAdminsLoading] = useState(false);
+
+  // Fetch chief admins on mount and after changes
+  useEffect(() => {
+    if (!isGlobalAdmin) return;
+    const fetchChiefAdmins = async () => {
+      setChiefAdminsLoading(true);
+      try {
+        const { data: roles } = await supabase
+          .from("user_roles")
+          .select("user_id")
+          .eq("role", "chief_admin" as any);
+        if (!roles?.length) { setChiefAdmins([]); return; }
+        const userIds = roles.map(r => r.user_id);
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, name, email")
+          .in("user_id", userIds);
+        setChiefAdmins(profiles || []);
+      } catch {
+        setChiefAdmins([]);
+      } finally {
+        setChiefAdminsLoading(false);
+      }
+    };
+    fetchChiefAdmins();
+  }, [isGlobalAdmin, companies]);
+
   return (
     <Layout title="Управление компаниями">
       <div className="container mx-auto px-4 py-6 space-y-6">
@@ -386,6 +416,59 @@ export default function AdminCompanies() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Chief Admins Section (global admin only) */}
+        {isGlobalAdmin && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <UserCog className="h-5 w-5 text-primary" />
+                Главные администраторы
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {chiefAdminsLoading ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : chiefAdmins.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-3">
+                  Нет назначенных главных администраторов
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {chiefAdmins.map((ca) => (
+                    <div key={ca.user_id} className="flex items-center justify-between p-3 rounded-lg border">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                          <span className="text-xs font-medium text-primary">
+                            {ca.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{ca.name}</p>
+                          <p className="text-xs text-muted-foreground">{ca.email}</p>
+                        </div>
+                        <Badge variant="outline" className={roleColors.chief_admin}>
+                          {roleLabels.chief_admin}
+                        </Badge>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => handleRevokeChiefAdmin(ca.user_id, ca.name)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Снять роль
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Search + Actions */}
         <div className="flex flex-col sm:flex-row gap-4">
